@@ -1,2 +1,43 @@
 body { margin: 0; overflow: hidden;}
 canvas { display: block; }
+
+#game-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+#scene-container {
+  flex: 1;
+  background: #000;
+}
+
+#controls {
+  padding: 20px;
+  background: #1a1a1a;
+  color: white;
+}
+
+#mining-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.gold-alert {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 215, 0, 0.9);
+  padding: 20px;
+  border-radius: 10px;
+  animation: fadeInOut 3s ease-in-out;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0; }
+  20%, 80% { opacity: 1; }
+}
