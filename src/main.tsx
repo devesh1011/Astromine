@@ -1,82 +1,96 @@
 import './createPost.js';
 
-import { Devvit, useWebView } from '@devvit/public-api';
-import { AsteroidData } from './types';
+import { Devvit, useState, useWebView } from '@devvit/public-api';
 
 import type { DevvitMessage, WebViewMessage } from './message.js';
 
-const ASTEROIDS: AsteroidData[] = [
-  {
-    id: "psyche",
-    name: "16 Psyche",
-    distance: 2.92,
-    composition: {
-      "Iron-Nickel": 63,
-      "Pyroxene": 20,
-      "Olivine": 10,
-      "Troilite": 5,
-      "Carbon": 2,
-      "Gold": 0.1
-    },
-    model_url: "psyche.gltf"
-  },
-  // Add other asteroids...
-];
-
 Devvit.configure({
   redditAPI: true,
-  http: true,
   redis: true,
 });
 
-// Schedule new asteroid posts every 4 hours
-Devvit.addSchedulerJob({
-  name: 'postNewAsteroid',
-  interval: '4h',
-  onRun: async (context) => {
-    const currentIndex = await context.redis.get('current_asteroid_index') || '0';
-    const index = parseInt(currentIndex);
-    const asteroid = ASTEROIDS[index];
-
-    await context.reddit.submitPost({
-      title: `New Asteroid Available: ${asteroid.name} - ${asteroid.distance} AU from Sun`,
-      postType: 'AstroMine',
-      metadata: asteroid,
-      subredditName: context.subredditName
-    });
-
-    // Update index for next asteroid
-    await context.redis.set('current_asteroid_index', 
-      ((index + 1) % ASTEROIDS.length).toString()
-    );
-  }
-});
-
-// Add custom post type
+// Add a custom post type to Devvit
 Devvit.addCustomPostType({
-  name: 'AstroMine',
+  name: 'Web View Example',
   height: 'tall',
   render: (context) => {
-    const asteroid = context.postMetadata as AsteroidData;
-    const webView = useWebView({
+    // Load username with `useAsync` hook
+    const [username] = useState(async () => {
+      return (await context.reddit.getCurrentUsername()) ?? 'anon';
+    });
+
+    // Load latest counter from redis with `useAsync` hook
+    const [counter, setCounter] = useState(async () => {
+      const redisCount = await context.redis.get(`counter_${context.postId}`);
+      return Number(redisCount ?? 0);
+    });
+
+    const webView = useWebView<WebViewMessage, DevvitMessage>({
+      // URL of your web view content
       url: 'page.html',
-      properties: { asteroid },
-      onMessage: async (message) => {
-        if (message.type === 'MINE') {
-          const result = await handleMining(context, message.data);
-          webView.postMessage({ type: 'MINING_RESULT', data: result });
+
+      // Handle messages sent from the web view
+      async onMessage(message, webView) {
+        switch (message.type) {
+          case 'webViewReady':
+            webView.postMessage({
+              type: 'initialData',
+              data: {
+                username: username,
+                currentCounter: counter,
+              },
+            });
+            break;
+          case 'setCounter':
+            await context.redis.set(
+              `counter_${context.postId}`,
+              message.data.newCounter.toString()
+            );
+            setCounter(message.data.newCounter);
+
+            webView.postMessage({
+              type: 'updateCounter',
+              data: {
+                currentCounter: message.data.newCounter,
+              },
+            });
+            break;
+          default:
+            throw new Error(`Unknown message type: ${message satisfies never}`);
         }
+      },
+      onUnmount() {
+        context.ui.showToast('Web view closed!');
       },
     });
 
+    // Render the custom post type
     return (
-      <vstack padding="medium" alignment="middle center">
-        <text size="xlarge" weight="bold">{asteroid.name}</text>
-        <text>Distance from Sun: {asteroid.distance} AU</text>
-        <spacer size="medium" />
-        <button onPress={() => webView.mount()}>
-          View Asteroid
-        </button>
+      <vstack grow padding="small">
+        <vstack grow alignment="middle center">
+          <text size="xlarge" weight="bold">
+            Example App
+          </text>
+          <spacer />
+          <vstack alignment="start middle">
+            <hstack>
+              <text size="medium">Username:</text>
+              <text size="medium" weight="bold">
+                {' '}
+                {username ?? ''}
+              </text>
+            </hstack>
+            <hstack>
+              <text size="medium">Current counter:</text>
+              <text size="medium" weight="bold">
+                {' '}
+                {counter ?? ''}
+              </text>
+            </hstack>
+          </vstack>
+          <spacer />
+          <button onPress={() => webView.mount()}>Launch App</button>
+        </vstack>
       </vstack>
     );
   },
