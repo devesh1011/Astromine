@@ -4,6 +4,7 @@ import { Devvit } from '@devvit/public-api';
 Devvit.addMenuItem({
   label: 'Create a new asteroid.',
   location: 'subreddit',
+  forUserType: 'moderator',
   onPress: async (_event, context) => {
     const { reddit, ui } = context;
     const subreddit = await reddit.getCurrentSubreddit();
@@ -21,3 +22,5 @@ Devvit.addMenuItem({
     ui.navigateTo(post);
   },
 });
+
+

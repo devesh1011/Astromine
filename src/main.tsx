@@ -16,6 +16,7 @@ Devvit.addCustomPostType({
       url: "page.html",
       async onMessage(message, webview) {
         message.type = "webViewReady"
+        // await context.redis.set(`${context.postId}`, message.type)
       }
     })
 
@@ -24,12 +25,5 @@ Devvit.addCustomPostType({
     )
   }
 })
-
-// Devvit.addSchedulerJob({
-//   name: "New Asteroid Appeared",
-//   onRun: async (event, context) {
-
-//   }
-// })
 
 export default Devvit;
