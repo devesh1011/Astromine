@@ -1,5 +1,8 @@
 import * as THREE from './libs/three.module.js';
 import { OrbitControls } from './libs/jsm/controls/OrbitControls.js';
+// import { GLTFLoader } from './libs/jsm/loaders/GLTFLoader.js';
+// import { RGBELoader } from './libs/jsm/loaders/RGBELoader.js';
+// import { DRACOLoader } from './libs/jsm/loaders/DRACOLoader.js';
 import { EffectComposer } from './libs/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from './libs/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from './libs/jsm/postprocessing/UnrealBloomPass.js';
