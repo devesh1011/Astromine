@@ -5,15 +5,17 @@ class App {
   constructor() {
     // Get references to the HTML elements
     this.output = /** @type {HTMLPreElement} */ (document.querySelector('#messageOutput'));
-    
     this.usernameLabel = /** @type {HTMLSpanElement} */ (document.querySelector('#username'));
+    this.counterLabel = /** @type {HTMLSpanElement} */ (document.querySelector('#counter'));
+    this.counter = 0;
 
     // When the Devvit app sends a message with `postMessage()`, this will be triggered
     addEventListener('message', this.#onMessage);
-    
+
     // This event gets called when the web view is loaded
     addEventListener('load', () => {
       postWebViewMessage({ type: 'webViewReady' });
+
       if (window.initAsteroid) {
         window.initAsteroid().catch(err => console.error("Failed to initialize asteroid:", err));
       }
@@ -37,7 +39,9 @@ class App {
       case 'initialData': {
         // Load initial data
         const { username, currentCounter } = message.data;
-        this.usernameLabel.innerText = username;
+        // this.usernameLabel.innerText = username;
+        // this.counter = currentCounter;
+        // this.counterLabel.innerText = `${this.counter}`;
         break;
       }
       case 'updateCounter': {

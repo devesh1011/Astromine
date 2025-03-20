@@ -1,14 +1,11 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
-import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
+import * as THREE from './libs/three.module.js';
+import { OrbitControls } from './libs/jsm/controls/OrbitControls.js';
+import { EffectComposer } from './libs/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from './libs/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from './libs/jsm/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from './libs/jsm/postprocessing/ShaderPass.js';
+import { SSAOPass } from './libs/jsm/postprocessing/SSAOPass.js';
+import { GammaCorrectionShader } from './libs/jsm/shaders/GammaCorrectionShader.js';
 
 // DOM elements
 const loadingContainer = document.getElementById('loadingContainer');
