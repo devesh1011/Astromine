@@ -1,7 +1,7 @@
-import './createPost.js';
+import "./createPost.js";
 
-import { Devvit, useState, useWebView } from '@devvit/public-api';
-import type { DevvitMessage, WebViewMessage } from './message.js';
+import { Devvit, useState, useWebView } from "@devvit/public-api";
+import type { DevvitMessage, WebViewMessage } from "./message.js";
 
 Devvit.configure({
   redditAPI: true,
@@ -15,15 +15,14 @@ Devvit.addCustomPostType({
     const webview = useWebView<WebViewMessage, DevvitMessage>({
       url: "page.html",
       async onMessage(message, webview) {
-        message.type = "webViewReady"
-        // await context.redis.set(`${context.postId}`, message.type)
-      }
-    })
+        message.type = "webViewReady";
+      },
+    });
 
-    return (
-      <button onPress={() => webview.mount()}>Watch Asteroid</button>
-    )
-  }
-})
+    return <button onPress={() => webview.mount()}>Start Mining!</button>;
+  },
+});
+
+
 
 export default Devvit;
