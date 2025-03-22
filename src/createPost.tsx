@@ -1,15 +1,12 @@
-import { Devvit } from '@devvit/public-api';
+import { Devvit } from "@devvit/public-api";
 
-// Adds a new menu item to the subreddit allowing to create a new post
-Devvit.addMenuItem({
-  label: 'Create a new asteroid.',
-  location: 'subreddit',
-  forUserType: 'moderator',
-  onPress: async (_event, context) => {
-    const { reddit, ui } = context;
+Devvit.addSchedulerJob({
+  name: "uploadNewPost",
+  onRun: async (event, context) => {
+    const { reddit } = context;
     const subreddit = await reddit.getCurrentSubreddit();
     const post = await reddit.submitPost({
-      title: 'Start Mining!',
+      title: "Start Mining!",
       subredditName: subreddit.name,
       // The preview appears while the post loads
       preview: (
@@ -18,9 +15,25 @@ Devvit.addMenuItem({
         </vstack>
       ),
     });
-    ui.showToast({ text: 'Created post!' });
-    ui.navigateTo(post);
+    // ui.showToast({ text: "New Astroid just appeared! Start Mining!" });
+    // ui.navigateTo(post);
   },
 });
 
-
+// Adds a new menu item to the subreddit allowing to create a new post
+Devvit.addMenuItem({
+  label: "Create a new asteroid.",
+  location: "subreddit",
+  forUserType: "moderator",
+  onPress: async (_event, context) => {
+    try {
+      await context.scheduler.runJob({
+        cron: "0 12 * * *",
+        name: "uploadNewPost",
+      });
+    } catch (e) {
+      console.log("error was not able to schedule:", e);
+      throw e;
+    }
+  },
+});
