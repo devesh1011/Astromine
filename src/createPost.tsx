@@ -28,7 +28,7 @@ Devvit.addMenuItem({
   onPress: async (_event, context) => {
     try {
       await context.scheduler.runJob({
-        cron: "0 12 * * *",
+        cron: "0 3 * * *",
         name: "uploadNewPost",
       });
     } catch (e) {
