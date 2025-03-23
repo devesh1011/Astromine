@@ -58,13 +58,13 @@ const TOOL_SETTINGS = {
     'shovel': {
         sparkDuration: 3.0,
         explosionDuration: 3.0,
-        explosionSize: 0.6,
+        explosionSize: 0.3,
         cursor: 'crosshair'
     },
     'dynamite': {
         sparkDuration: 8.0,
         explosionDuration: 4.0,
-        explosionSize: 0.8,
+        explosionSize: 0.5,
         cursor: 'crosshair'
     }
 };
@@ -150,33 +150,15 @@ const dynamiteIcon = `<div style="font-size: 24px; line-height: 1;">💣</div>`;
 toolSelector.appendChild(createToolButton('shovel', shovelIcon, 'Shovel'));
 toolSelector.appendChild(createToolButton('dynamite', dynamiteIcon, 'Dynamite'));
 
-// Add quality settings control
-const qualitySelector = document.createElement('select');
-qualitySelector.id = 'qualitySelector';
-qualitySelector.className = 'ui-dropdown';
-qualitySelector.style.position = 'fixed';
-qualitySelector.style.top = '20px';
-qualitySelector.style.right = '20px';
-
+// Define quality settings - always set to high
 const qualities = [
     { name: 'Low', bloom: false, ssao: false, shadows: false },
     { name: 'Medium', bloom: true, ssao: false, shadows: true },
     { name: 'High', bloom: true, ssao: true, shadows: true }
 ];
 
-qualities.forEach((quality, index) => {
-    const option = document.createElement('option');
-    option.value = index;
-    option.textContent = quality.name + ' Quality';
-    qualitySelector.appendChild(option);
-});
-
-qualitySelector.value = 2; // Default to high quality
-qualitySelector.addEventListener('change', () => {
-    const quality = qualities[qualitySelector.value];
-    updateQuality(quality);
-});
-document.body.appendChild(qualitySelector);
+// Always use high quality (index 2)
+const quality = qualities[2];
 
 // Function to update quality settings
 function updateQuality(quality) {
@@ -186,6 +168,9 @@ function updateQuality(quality) {
     // Rebuild the post-processing pipeline
     createPostProcessingEffects(quality);
 }
+
+// Apply high quality settings
+updateQuality(quality);
 
 // Lighting
 function setupLighting() {
@@ -312,15 +297,93 @@ function setupFallbackEnvironment() {
     scene.environment = cubeRenderTarget.texture;
 }
 
-// Create a realistic rock texture
+// Add this function to generate random asteroid configurations
+function getRandomAsteroidConfig() {
+    // Random seed to ensure consistent generation for a single asteroid
+    const seed = Math.floor(Math.random() * 1000000);
+    
+    return {
+        // Base color variations from gray to brownish to reddish to bluish
+        baseColor: new THREE.Color().setHSL(
+            // Hue: Wide range of possible asteroid colors
+            Math.random() < 0.7 ? 
+                // 70% chance of being gray/brown/red (0.02-0.1)
+                (0.02 + Math.random() * 0.08) : 
+                // 30% chance of other colors (blue/green/purple tints)
+                (0.3 + Math.random() * 0.6),
+            // Saturation: From almost gray to more saturated
+            0.1 + Math.random() * 0.4,
+            // Lightness: From darker to lighter
+            0.2 + Math.random() * 0.3
+        ),
+        
+        // Texture variations
+        texture: {
+            // How bumpy the texture appears
+            roughness: 0.5 + Math.random() * 0.4,
+            // How metallic the asteroid appears
+            metalness: 0.05 + Math.random() * 0.3,
+            // Scale of the texture details
+            detailScale: 0.7 + Math.random() * 0.6,
+            // Number of craters
+            craterDensity: 0.5 + Math.random() * 1.0,
+            // Contrast of the texture
+            contrast: 0.7 + Math.random() * 0.5,
+            // Base texture brightness
+            brightness: 0.7 + Math.random() * 0.5
+        },
+        
+        // Shape variations
+        shape: {
+            // Overall deformation strength
+            deformStrength: 0.2 + Math.random() * 0.3,
+            // Number of major features (mountains, craters)
+            featureCount: 3 + Math.floor(Math.random() * 8),
+            // Smoothness of the overall shape
+            smoothness: 0.3 + Math.random() * 1.2,
+            // Seed for shape generation
+            seed: seed
+        },
+        
+        // Noise variations for surface details
+        noise: {
+            // Strength of different noise frequencies
+            largeFeatures: 0.4 + Math.random() * 0.2,
+            mediumFeatures: 0.2 + Math.random() * 0.15,
+            smallFeatures: 0.1 + Math.random() * 0.15,
+            tinyFeatures: 0.05 + Math.random() * 0.1,
+            microFeatures: 0.02 + Math.random() * 0.05,
+            // Smoothness of noise transitions
+            turbulence: 0.5 + Math.random() * 1.0
+        }
+    };
+}
+
+// Store current asteroid configuration
+let currentAsteroidConfig = getRandomAsteroidConfig();
+
+// Create a realistic rock texture with randomization
 function createRockTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 2048; // Higher resolution texture
     canvas.height = 2048;
     const context = canvas.getContext('2d');
     
-    // Fill with lighter base color for better visibility
-    context.fillStyle = '#5a5a4e';
+    // Get current configuration
+    const config = currentAsteroidConfig;
+    
+    // Generate base color from config
+    const baseColorHSL = config.baseColor.getHSL({});
+    const baseColorRGB = {
+        r: Math.floor(config.baseColor.r * 255),
+        g: Math.floor(config.baseColor.g * 255),
+        b: Math.floor(config.baseColor.b * 255)
+    };
+    
+    // Fill with base color adjusted by brightness
+    context.fillStyle = `rgb(${Math.floor(baseColorRGB.r * config.texture.brightness)}, 
+                             ${Math.floor(baseColorRGB.g * config.texture.brightness)}, 
+                             ${Math.floor(baseColorRGB.b * config.texture.brightness)})`;
     context.fillRect(0, 0, canvas.width, canvas.height);
     
     // Create a noisy background pattern
@@ -339,16 +402,21 @@ function createRockTexture() {
             const idx = (y * noiseCanvas.width + x) * 4;
             
             // Sample at different frequencies for more natural look
-            const highFreq = Math.random() * 0.15;
-            const midFreq = Math.sin(x/20) * Math.cos(y/20) * 0.15;
-            const lowFreq = Math.sin(x/200 + y/100) * 0.2;
+            // Apply turbulence factor from config to control noise transitions
+            const turbFactor = config.noise.turbulence;
+            const highFreq = Math.random() * 0.15 * config.noise.microFeatures;
+            const midFreq = Math.sin(x/(20 * turbFactor)) * Math.cos(y/(20 * turbFactor)) * 0.15 * config.noise.smallFeatures;
+            const lowFreq = Math.sin(x/(200 * turbFactor) + y/(100 * turbFactor)) * 0.2 * config.noise.mediumFeatures;
             
             // Combine frequencies for natural detail
             let noiseVal = highFreq + midFreq + lowFreq;
             noiseVal = (noiseVal + 1) * 0.5; // Normalize to 0-1
             
-            // Apply to create grayscale noise - brightened
-            const colorVal = Math.floor(noiseVal * 90) + 60;
+            // Apply contrast from config
+            noiseVal = 0.5 + (noiseVal - 0.5) * config.texture.contrast;
+            
+            // Apply to create grayscale noise - brightened and scaled by config
+            const colorVal = Math.floor(noiseVal * 90 * config.texture.brightness) + 60;
             data[idx] = colorVal;
             data[idx+1] = colorVal;
             data[idx+2] = colorVal;
@@ -365,8 +433,9 @@ function createRockTexture() {
     
     // Add different types of surface features
     
-    // Medium-sized rocky outcrops and depressions (100-300)
-    for (let i = 0; i < 200; i++) {
+    // Medium-sized rocky outcrops and depressions - scaled by config
+    const outcropsCount = Math.floor(200 * config.texture.detailScale);
+    for (let i = 0; i < outcropsCount; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
         const radius = Math.random() * 60 + 40;
@@ -376,18 +445,18 @@ function createRockTexture() {
         let r, g, b;
         
         if (rockType < 0.4) {
-            // Dark gray rocks - brightened
-            r = Math.floor(70 + Math.random() * 30);
-            g = Math.floor(r - 5 + Math.random() * 10);
-            b = Math.floor(r - 10 + Math.random() * 8);
+            // Dark gray rocks - brightened, adjusted by base color
+            r = Math.floor((70 + Math.random() * 30) * (baseColorRGB.r / 128));
+            g = Math.floor((r - 5 + Math.random() * 10) * (baseColorRGB.g / 128));
+            b = Math.floor((r - 10 + Math.random() * 8) * (baseColorRGB.b / 128));
         } else if (rockType < 0.7) {
-            // Brownish rocks - brightened
-            r = Math.floor(90 + Math.random() * 30);
-            g = Math.floor(r - 20 + Math.random() * 15);
-            b = Math.floor(g - 30 + Math.random() * 10);
+            // Brownish rocks - brightened, adjusted by base color
+            r = Math.floor((90 + Math.random() * 30) * (baseColorRGB.r / 128));
+            g = Math.floor((r - 20 + Math.random() * 15) * (baseColorRGB.g / 128));
+            b = Math.floor((g - 30 + Math.random() * 10) * (baseColorRGB.b / 128));
         } else {
-            // Light gray rocks - brightened
-            r = Math.floor(110 + Math.random() * 40);
+            // Light gray rocks - brightened, adjusted by base color
+            r = Math.floor((110 + Math.random() * 40) * (baseColorRGB.r / 128));
             g = r - Math.floor(Math.random() * 10);
             b = g - Math.floor(Math.random() * 15);
         }
@@ -437,14 +506,15 @@ function createRockTexture() {
         context.restore();
     }
     
-    // Craters (60-120)
-    for (let i = 0; i < 90; i++) {
+    // Craters - scaled by config
+    const craterCount = Math.floor(90 * config.texture.craterDensity);
+    for (let i = 0; i < craterCount; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
         const radius = Math.random() * 50 + 20;
         
-        // Randomize the color for crater
-        const shade = Math.floor(60 + Math.random() * 30);
+        // Randomize the color for crater - adjusted by base color
+        const shade = Math.floor((60 + Math.random() * 30) * (baseColorHSL.l * 1.5));
         
         // Create the crater pit
         context.beginPath();
@@ -497,16 +567,17 @@ function createRockTexture() {
         }
     }
     
-    // Small detailed rocks and pebbles (thousands)
-    for (let i = 0; i < 8000; i++) {
+    // Small detailed rocks and pebbles - scaled by configuration
+    const pebblesCount = Math.floor(8000 * config.texture.detailScale);
+    for (let i = 0; i < pebblesCount; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
         const radius = Math.random() * 4 + 1;
         
-        // Random gray-brown shades
-        const r = Math.floor(70 + Math.random() * 60);
-        const g = Math.floor(r - 15 + Math.random() * 20);
-        const b = Math.floor(g - 25 + Math.random() * 15);
+        // Random shades based on base color
+        const r = Math.floor((70 + Math.random() * 60) * (baseColorRGB.r / 128));
+        const g = Math.floor((r - 15 + Math.random() * 20) * (baseColorRGB.g / 128));
+        const b = Math.floor((g - 25 + Math.random() * 15) * (baseColorRGB.b / 128));
         
         context.beginPath();
         
@@ -553,18 +624,19 @@ function createRockTexture() {
         const radius = Math.random() * 200 + 100;
         
         // Subtle color tints - yellowish/reddish/bluish mineral deposits
+        // Adjusted by base color
         const tintType = Math.floor(Math.random() * 3);
         let tint;
         
         if (tintType === 0) {
             // Subtle reddish (iron oxide)
-            tint = `rgba(130, 60, 40, 0.1)`;
+            tint = `rgba(${Math.floor(130 * baseColorRGB.r/128)}, ${Math.floor(60 * baseColorRGB.g/128)}, ${Math.floor(40 * baseColorRGB.b/128)}, 0.1)`;
         } else if (tintType === 1) {
             // Subtle yellowish (sulfur)
-            tint = `rgba(140, 130, 40, 0.08)`;
+            tint = `rgba(${Math.floor(140 * baseColorRGB.r/128)}, ${Math.floor(130 * baseColorRGB.g/128)}, ${Math.floor(40 * baseColorRGB.b/128)}, 0.08)`;
         } else {
             // Subtle bluish-gray (nickel)
-            tint = `rgba(70, 80, 100, 0.12)`;
+            tint = `rgba(${Math.floor(70 * baseColorRGB.r/128)}, ${Math.floor(80 * baseColorRGB.g/128)}, ${Math.floor(100 * baseColorRGB.b/128)}, 0.12)`;
         }
         
         const gradient = context.createRadialGradient(
@@ -691,6 +763,9 @@ function createRoughnessMap(diffuseMap) {
 
 // Create asteroid procedurally with enhanced detail
 function createProceduralAsteroid() {
+    // Get current asteroid configuration
+    const config = currentAsteroidConfig;
+    
     // Create asteroid geometry with higher resolution for more detail
     const asteroidGeometry = new THREE.SphereGeometry(2, 192, 192);
     
@@ -700,6 +775,7 @@ function createProceduralAsteroid() {
     const vertex = new THREE.Vector3();
     const normal = new THREE.Vector3();
     
+    // Create a new simplex with the configured seed
     const simplex = new SimplexNoise();
     
     for (let i = 0; i < positions.count; i++) {
@@ -712,21 +788,22 @@ function createProceduralAsteroid() {
         const nz = vertex.z / 2;
         
         // Use multiple octaves of simplex noise for natural terrain
-        const noise1 = simplex.noise3D(nx * 1, ny * 1, nz * 1) * 0.5;       // Large features
-        const noise2 = simplex.noise3D(nx * 2, ny * 2, nz * 2) * 0.25;      // Medium features
-        const noise3 = simplex.noise3D(nx * 4, ny * 4, nz * 4) * 0.125;     // Small features
-        const noise4 = simplex.noise3D(nx * 8, ny * 8, nz * 8) * 0.0625;    // Tiny details
-        const noise5 = simplex.noise3D(nx * 16, ny * 16, nz * 16) * 0.03125; // Micro details
+        // Scale each frequency by the configuration values
+        const noise1 = simplex.noise3D(nx * 1, ny * 1, nz * 1) * config.noise.largeFeatures;
+        const noise2 = simplex.noise3D(nx * 2, ny * 2, nz * 2) * config.noise.mediumFeatures;
+        const noise3 = simplex.noise3D(nx * 4, ny * 4, nz * 4) * config.noise.smallFeatures;
+        const noise4 = simplex.noise3D(nx * 8, ny * 8, nz * 8) * config.noise.tinyFeatures;
+        const noise5 = simplex.noise3D(nx * 16, ny * 16, nz * 16) * config.noise.microFeatures;
         
         // Combine multiple frequency noises for natural-looking terrain
         let noise = noise1 + noise2 + noise3 + noise4 + noise5;
         
         // Add some local deformation "hotspots" for major features
-        const distortionPoints = 5; // Number of major features
+        const distortionPoints = config.shape.featureCount; // Number of major features
         for (let j = 0; j < distortionPoints; j++) {
-            // Random point on sphere
-            const angle1 = j * Math.PI * (3 - Math.sqrt(5)); // Fibonacci spiral
-            const angle2 = j * 2 * Math.PI / distortionPoints;
+            // Random point on sphere based on config seed
+            const angle1 = j * Math.PI * (3 - Math.sqrt(5)) + config.shape.seed * 0.01;
+            const angle2 = j * 2 * Math.PI / distortionPoints + config.shape.seed * 0.02;
             
             const px = Math.sin(angle1) * Math.cos(angle2);
             const py = Math.sin(angle1) * Math.sin(angle2);
@@ -741,7 +818,8 @@ function createProceduralAsteroid() {
             const distSq = dx*dx + dy*dy + dz*dz;
             
             // Add stronger deformation near hotspots (inverse square falloff)
-            const deform = 0.5 / (1 + distSq * 10);
+            // Adjusted by smoothness from configuration
+            const deform = 0.5 / (1 + distSq * (10 * config.shape.smoothness));
             
             // Change sign randomly for some hotspots to create both mountains and craters
             const sign = (j % 2 === 0) ? 1 : -1;
@@ -753,7 +831,8 @@ function createProceduralAsteroid() {
         const distance = vertex.length();
         
         // Use noise itself to determine deformation strength for more varied terrain
-        const deformationStrength = 0.3 + Math.abs(noise) * 0.3;
+        // Adjusted by configuration deformStrength
+        const deformationStrength = 0.3 + Math.abs(noise) * 0.3 * config.shape.deformStrength;
         const deformation = 1 + noise * deformationStrength;
         
         // Apply deformation along normal for more natural shape
@@ -782,9 +861,9 @@ function createProceduralAsteroid() {
         displacementMap: displacementMap,
         displacementScale: 0.15,
         displacementBias: -0.05,
-        roughness: 0.8,
-        metalness: 0.15,
-        color: 0x706a60,
+        roughness: config.texture.roughness,
+        metalness: config.texture.metalness,
+        color: config.baseColor,
         envMapIntensity: 0.5,
         flatShading: false,
     });
@@ -795,7 +874,7 @@ function createProceduralAsteroid() {
     
     modelGroup.add(asteroid);
     
-    console.log("Created enhanced natural-looking asteroid");
+    console.log("Created enhanced natural-looking asteroid with configuration:", config);
     return asteroid;
 }
 
@@ -1840,6 +1919,9 @@ function setupInteraction() {
 
 // Initialize the scene
 async function init() {
+    // Generate new asteroid configuration each time
+    currentAsteroidConfig = getRandomAsteroidConfig();
+    
     setupLighting();
     setupInteraction();
     
@@ -1863,8 +1945,7 @@ async function init() {
             setupFallbackEnvironment();
         });
         
-        // Setup post-processing based on the default quality
-        const quality = qualities[qualitySelector.value];
+        // Setup post-processing with high quality
         createPostProcessingEffects(quality);
         
         // Update button text to match initial state
