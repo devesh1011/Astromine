@@ -172,7 +172,7 @@ Devvit.addCustomPostType({
         }
       },
       onUnmount() {
-        context.ui.showToast('Game closed!');
+        // Removed the toast notification
       },
     });
     
@@ -208,7 +208,7 @@ Devvit.addCustomPostType({
             <button
               onPress={() => {
                 gameWebView.mount();
-                context.ui.showToast('Launching game...');
+                // Removed the toast notification
               }}
               appearance="primary"
               size="large"

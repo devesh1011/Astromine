@@ -15,10 +15,180 @@ const loadingContainer = document.getElementById('loadingContainer');
 const loadingProgress = document.getElementById('loadingProgress');
 const loadingText = document.getElementById('loadingText');
 
+// Add this near the top with other DOM elements
+const scoreCard = document.createElement('div');
+scoreCard.className = 'score-card';
+scoreCard.innerHTML = `
+  <h3>Mined Resources</h3>
+  <div class="score-item">
+    <span class="label">CARBON:</span>
+    <span class="value" id="carbonScore">0</span>
+  </div>
+  <div class="score-item">
+    <span class="label">NICKEL:</span>
+    <span class="value" id="nickelScore">0</span>
+  </div>
+  <div class="score-item">
+    <span class="label">IRON:</span>
+    <span class="value" id="ironScore">0</span>
+  </div>
+  <div class="score-item">
+    <span class="label">GOLD:</span>
+    <span class="value" id="goldScore">0</span>
+  </div>
+  <div class="score-item">
+    <span class="label">PLATINUM:</span>
+    <span class="value" id="platinumScore">0</span>
+  </div>
+`;
+document.body.appendChild(scoreCard);
+
+// Add this near the top with other variables
+const resources = {
+  CARBON: 0,
+  NICKEL: 0,
+  IRON: 0,
+  GOLD: 0,
+  PLATINUM: 0
+};
+
+// Modify the resource ratios and probabilities
+const resourceRatios = {
+  CARBON: 10,
+  NICKEL: 8,
+  IRON: 5,
+  GOLD: 4,    // Increased from 2
+  PLATINUM: 0.6 // Increased from 0.3
+};
+
+// Add this near the top with other variables
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+let soundEnabled = true;
+let shovelSoundBuffer = null;
+let fuseSoundBuffer = null;
+let explosionSoundBuffer = null;
+let spaceSoundBuffer = null;
+let spaceSoundSource = null;
+
+// Add this near the top with other variables
+let gameStarted = false;
+
+// Function to create the start game popup
+function createStartGamePopup() {
+    const popup = document.createElement('div');
+    popup.className = 'start-game-popup';
+    
+    const title = document.createElement('h2');
+    title.textContent = 'Welcome to Astromine!';
+    title.style.color = '#00ffcc';
+    title.style.marginBottom = '1rem';
+    
+    const button = document.createElement('button');
+    button.className = 'start-game-button';
+    button.textContent = 'Start Game';
+    
+    button.addEventListener('click', () => {
+        // Start the game
+        gameStarted = true;
+        popup.remove();
+        
+        // Start the space background sound
+        if (soundEnabled && spaceSoundBuffer) {
+            playSpaceSound();
+        }
+        
+        // Resume audio context if suspended
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        
+        // Enable tool buttons
+        enableToolButtons();
+    });
+    
+    popup.appendChild(title);
+    popup.appendChild(button);
+    
+    document.body.appendChild(popup);
+}
+
+// Call this function after the page loads
+createStartGamePopup();
+
+// Function to load the sound file
+async function loadSound(url) {
+    try {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        return await audioContext.decodeAudioData(arrayBuffer);
+    } catch (error) {
+        console.error('Error loading sound:', error);
+        return null;
+    }
+}
+
+// Load all sound files when the page loads
+Promise.all([
+    loadSound('shovel.mp3'),
+    loadSound('fuse.mp3'),
+    loadSound('explosion.mp3'),
+    loadSound('space.mp3')
+]).then(([shovel, fuse, explosion, space]) => {
+    shovelSoundBuffer = shovel;
+    fuseSoundBuffer = fuse;
+    explosionSoundBuffer = explosion;
+    spaceSoundBuffer = space;
+    console.log('All sounds loaded successfully');
+    
+    // Start playing the space background sound
+    playSpaceSound();
+});
+
+// Add this function to update the score card
+function updateScoreCard() {
+  const scoreElements = {
+    carbonScore: document.getElementById('carbonScore'),
+    nickelScore: document.getElementById('nickelScore'),
+    ironScore: document.getElementById('ironScore'),
+    goldScore: document.getElementById('goldScore'),
+    platinumScore: document.getElementById('platinumScore')
+  };
+
+  // Add a retro-style number roll effect
+  Object.keys(scoreElements).forEach((key, index) => {
+    const element = scoreElements[key];
+    const targetValue = resources[key.replace('Score', '').toUpperCase()];
+    
+    // Create a temporary element for the roll effect
+    const tempElement = document.createElement('span');
+    tempElement.className = 'value';
+    tempElement.textContent = element.textContent;
+    tempElement.style.position = 'absolute';
+    tempElement.style.color = '#f00';
+    tempElement.style.textShadow = '0 0 5px #f00';
+    element.parentNode.appendChild(tempElement);
+    
+    // Animate the roll
+    let currentValue = parseInt(element.textContent);
+    const interval = setInterval(() => {
+      if (currentValue < targetValue) {
+        currentValue += Math.ceil((targetValue - currentValue) / 10);
+        if (currentValue > targetValue) currentValue = targetValue;
+        element.textContent = currentValue;
+        tempElement.style.transform = `translateY(${(currentValue / targetValue) * -10}px)`;
+        tempElement.style.opacity = 1 - (currentValue / targetValue);
+        } else {
+        clearInterval(interval);
+        tempElement.remove();
+      }
+    }, 50);
+  });
+}
+
 // Scene setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(5, 2, 5);
+camera.position.set(8, 3, 8); // Changed from (5, 2, 5) to (8, 3, 8) for a more zoomed-out view
 
 // Initialize clock
 const clock = new THREE.Clock();
@@ -69,26 +239,10 @@ const TOOL_SETTINGS = {
     }
 };
 
-// Add toggle button for auto-rotation
-const autoRotateButton = document.createElement('button');
-autoRotateButton.id = 'autoRotateButton';
-autoRotateButton.className = 'ui-button';
-autoRotateButton.textContent = 'Toggle Auto-Rotate';
-autoRotateButton.addEventListener('click', () => {
-    autoRotate = !autoRotate;
-    autoRotateButton.textContent = autoRotate ? 'Stop Rotation' : 'Start Rotation';
-});
-document.body.appendChild(autoRotateButton);
 
 // Add tool selector
 const toolSelector = document.createElement('div');
-toolSelector.id = 'toolSelector';
-toolSelector.style.position = 'fixed';
-toolSelector.style.top = '20px';
-toolSelector.style.right = '160px';
-toolSelector.style.zIndex = '100';
-toolSelector.style.display = 'flex';
-toolSelector.style.gap = '10px';
+toolSelector.className = 'tool-selector'; // Changed from id to class
 document.body.appendChild(toolSelector);
 
 // Create tool buttons with icons
@@ -96,36 +250,41 @@ function createToolButton(tool, icon, label) {
     const button = document.createElement('button');
     button.className = 'tool-button';
     button.dataset.tool = tool;
-    button.style.width = '50px';
-    button.style.height = '50px';
-    button.style.borderRadius = '8px';
+    button.style.width = '60px';
+    button.style.height = '60px';
+    button.style.borderRadius = '10px';
     button.style.background = tool === currentTool ? '#4466ff' : '#333';
     button.style.color = 'white';
-    button.style.border = 'none';
     button.style.cursor = 'pointer';
     button.style.display = 'flex';
     button.style.flexDirection = 'column';
     button.style.alignItems = 'center';
     button.style.justifyContent = 'center';
-    button.style.fontSize = '10px';
-    button.style.padding = '5px';
-    button.style.transition = 'all 0.2s ease';
-    button.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
-    
-    // Icon
+    button.style.fontSize = '12px';
+    button.style.padding = '8px';
+    button.style.transition = 'all 0.3s ease';
+
+    // Icon container
     const iconElement = document.createElement('div');
+    iconElement.className = 'icon';
     iconElement.innerHTML = icon;
     iconElement.style.marginBottom = '5px';
-    iconElement.style.width = '24px';
-    iconElement.style.height = '24px';
-    
-    // Label
+    iconElement.style.width = '32px';  // Larger icons
+    iconElement.style.height = '32px';
+    iconElement.style.fontSize = '32px';
+    iconElement.style.textShadow = '0 0 5px rgba(255, 255, 0, 0.8)';
+
+    // Label container
     const labelElement = document.createElement('span');
+    labelElement.className = 'label';
     labelElement.textContent = label;
-    
+    labelElement.style.textTransform = 'uppercase';
+    labelElement.style.fontWeight = 'bold';
+    labelElement.style.letterSpacing = '1px';
+
     button.appendChild(iconElement);
     button.appendChild(labelElement);
-    
+
     // Event handler
     button.addEventListener('click', () => {
         // Update current tool
@@ -133,10 +292,22 @@ function createToolButton(tool, icon, label) {
         
         // Update all button styles
         document.querySelectorAll('.tool-button').forEach(btn => {
-            btn.style.background = btn.dataset.tool === currentTool ? '#4466ff' : '#333';
+            btn.classList.remove('active');
+            btn.style.background = btn.dataset.tool === currentTool ? 
+                'linear-gradient(145deg, #4466ff, #2233aa)' : 
+                'linear-gradient(145deg, #333, #000)';
         });
+        
+        // Add active class to clicked button
+        button.classList.add('active');
+        
+        // Add a click effect
+        button.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+            button.style.transform = 'scale(1)';
+        }, 100);
     });
-    
+
     return button;
 }
 
@@ -148,7 +319,7 @@ const dynamiteIcon = `<div style="font-size: 24px; line-height: 1;">💣</div>`;
 
 // Add tool buttons to selector
 toolSelector.appendChild(createToolButton('shovel', shovelIcon, 'Shovel'));
-toolSelector.appendChild(createToolButton('dynamite', dynamiteIcon, 'Dynamite'));
+toolSelector.appendChild(createToolButton('dynamite', dynamiteIcon, 'Boom')); // Changed from 'Dynamite' to 'Boom'
 
 // Define quality settings - always set to high
 const qualities = [
@@ -1037,11 +1208,71 @@ class DustExplosion {
         // Stop the rotation when tool is active
         if (autoRotate) {
             autoRotate = false;
-            autoRotateButton.textContent = 'Start Rotation';
         }
         
         // Create spark particles first
         this.createSparkParticles();
+        
+        // Add sound handling
+        this.shovelSound = null;
+        this.shovelSoundSource = null;
+        this.fuseSoundSource = null;
+        this.explosionSoundSource = null;
+        
+        if (this.toolType === 'shovel' && soundEnabled && shovelSoundBuffer) {
+            this.playShovelSound();
+        } else if (this.toolType === 'dynamite') {
+            if (soundEnabled && fuseSoundBuffer) {
+                this.playFuseSound();
+            }
+        }
+    }
+    
+    playShovelSound() {
+        try {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            const source = audioContext.createBufferSource();
+            source.buffer = shovelSoundBuffer;
+            source.connect(audioContext.destination);
+            source.start(0);
+            source.stop(audioContext.currentTime + 3);
+        } catch (error) {
+            console.error('Error playing shovel sound:', error);
+        }
+    }
+
+    playFuseSound() {
+        try {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            this.fuseSoundSource = audioContext.createBufferSource();
+            this.fuseSoundSource.buffer = fuseSoundBuffer;
+            this.fuseSoundSource.connect(audioContext.destination);
+            this.fuseSoundSource.start(0);
+            this.fuseSoundSource.stop(audioContext.currentTime + 8);
+        } catch (error) {
+            console.error('Error playing fuse sound:', error);
+        }
+    }
+
+    playExplosionSound() {
+        try {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            this.explosionSoundSource = audioContext.createBufferSource();
+            this.explosionSoundSource.buffer = explosionSoundBuffer;
+            this.explosionSoundSource.connect(audioContext.destination);
+            this.explosionSoundSource.start(0);
+        } catch (error) {
+            console.error('Error playing explosion sound:', error);
+        }
     }
     
     // Create initial spark particles for drilling effect
@@ -1483,6 +1714,24 @@ class DustExplosion {
             // Transition to explosion phase
             this.explosionStarted = true;
             this.createExplosionParticles();
+            
+            // Add resources when mining finishes
+            this.addResources();
+            
+            // Stop the shovel sound if it's still playing
+            if (this.toolType === 'shovel' && this.shovelSoundSource) {
+                this.shovelSoundSource.stop();
+            }
+            
+            // Stop the fuse sound and play explosion sound for dynamite
+            if (this.toolType === 'dynamite') {
+                if (this.fuseSoundSource) {
+                    this.fuseSoundSource.stop();
+                }
+                if (soundEnabled && explosionSoundBuffer) {
+                    this.playExplosionSound();
+                }
+            }
         }
         
         // Phase 2: Explosion and aftermath
@@ -1499,7 +1748,6 @@ class DustExplosion {
             // When explosion is complete, restore auto-rotation if it was on before
             if (this.wasAutoRotating && !autoRotate) {
                 autoRotate = true;
-                autoRotateButton.textContent = 'Stop Rotation';
             }
             
             return;
@@ -1791,6 +2039,25 @@ class DustExplosion {
             this.group.add(spark);
         }
     }
+
+    addResources() {
+        const resourceTypes = ['CARBON', 'NICKEL', 'IRON', 'GOLD', 'PLATINUM'];
+        const randomResource = resourceTypes[Math.floor(Math.random() * resourceTypes.length)];
+        
+        // Calculate the amount based on the ratio
+        const baseAmount = Math.floor(Math.random() * 5) + 1;
+        let amount = Math.round(baseAmount * resourceRatios[randomResource]);
+        
+        // Double the amount for dynamite
+        if (this.toolType === 'dynamite') {
+            amount *= 2;
+        }
+        
+        resources[randomResource] += amount;
+        
+        // Update the score card
+        updateScoreCard();
+    }
 }
 
 // Animation
@@ -1888,6 +2155,8 @@ function setupInteraction() {
     
     // Click event for dust explosion
     window.addEventListener('click', (event) => {
+        if (!gameStarted) return;
+        
         // Calculate mouse position in normalized device coordinates
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -1948,9 +2217,6 @@ async function init() {
         // Setup post-processing with high quality
         createPostProcessingEffects(quality);
         
-        // Update button text to match initial state
-        autoRotateButton.textContent = autoRotate ? 'Stop Rotation' : 'Start Rotation';
-        
         // Start animation loop
         animate();
         
@@ -1992,3 +2258,121 @@ async function init() {
 
 // Start the application
 window.initAsteroid = init;
+
+// Add shop button creation
+function createShopButton() {
+    const button = document.createElement('button');
+    button.className = 'shop-button';
+    
+    // Add icon and text
+    button.innerHTML = `
+        <span class="icon">🛒</span>
+        <span class="text">SHOP</span>
+    `;
+    
+    // Add click handler
+    button.addEventListener('click', () => {
+        // Add a click animation
+        button.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+            button.style.transform = 'scale(1)';
+        }, 100);
+        
+        // Redirect to shop page (to be implemented later)
+        window.location.href = 'shop.html';
+    });
+    
+    return button;
+}
+
+// Add shop button to the page
+const shopButton = createShopButton();
+document.body.appendChild(shopButton);
+
+// Add sound toggle button
+const soundButton = document.createElement('button');
+soundButton.textContent = '🔊';
+soundButton.style.position = 'fixed';
+soundButton.style.bottom = '20px';
+soundButton.style.right = '20px';
+soundButton.style.zIndex = '100';
+soundButton.addEventListener('click', async () => {
+    try {
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+        
+        soundEnabled = !soundEnabled;
+        soundButton.textContent = soundEnabled ? '🔊' : '🔇';
+        
+        // Handle space background sound
+        if (soundEnabled && spaceSoundBuffer) {
+            playSpaceSound();
+        } else if (spaceSoundSource) {
+            spaceSoundSource.stop();
+        }
+    } catch (error) {
+        console.error('Error toggling sound:', error);
+    }
+});
+document.body.appendChild(soundButton);
+
+// Add this function to resume audio context on first interaction
+function initAudio() {
+    const handleFirstInteraction = () => {
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().then(() => {
+                console.log('Audio context resumed successfully');
+            }).catch(error => {
+                console.error('Error resuming audio context:', error);
+            });
+        }
+        document.removeEventListener('click', handleFirstInteraction);
+        document.removeEventListener('touchstart', handleFirstInteraction);
+    };
+    
+    document.addEventListener('click', handleFirstInteraction);
+    document.addEventListener('touchstart', handleFirstInteraction);
+}
+
+// Call the audio initialization
+initAudio();
+
+// Add this function to check audio context state
+function checkAudioContext() {
+    console.log('Audio context state:', audioContext.state);
+    if (audioContext.state === 'suspended') {
+        console.log('Audio context is suspended. User interaction required.');
+    }
+}
+
+// Call this periodically to monitor audio state
+setInterval(checkAudioContext, 5000);
+
+// Add this function to play the space background sound
+function playSpaceSound() {
+    if (!gameStarted || !soundEnabled || !spaceSoundBuffer) return;
+    
+    try {
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        
+        spaceSoundSource = audioContext.createBufferSource();
+        spaceSoundSource.buffer = spaceSoundBuffer;
+        spaceSoundSource.loop = true;
+        spaceSoundSource.connect(audioContext.destination);
+        spaceSoundSource.start(0);
+    } catch (error) {
+        console.error('Error playing space sound:', error);
+    }
+}
+
+// Add this function to enable tool buttons
+function enableToolButtons() {
+    const toolButtons = document.querySelectorAll('.tool-button');
+    toolButtons.forEach(button => {
+        button.style.opacity = '1';
+        button.style.pointerEvents = 'auto';
+    });
+}
