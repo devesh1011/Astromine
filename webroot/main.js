@@ -63,7 +63,7 @@ const resourceRatios = {
 
 // Add this near the top with other variables
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-let soundEnabled = true;
+let soundEnabled = false; // Changed from true to false
 let shovelSoundBuffer = null;
 let fuseSoundBuffer = null;
 let explosionSoundBuffer = null;
@@ -71,49 +71,47 @@ let spaceSoundBuffer = null;
 let spaceSoundSource = null;
 
 // Add this near the top with other variables
-let gameStarted = false;
+let gameStarted = true; // Set game as started by default
 
-// Function to create the start game popup
-function createStartGamePopup() {
-    const popup = document.createElement('div');
-    popup.className = 'start-game-popup';
-    
-    const title = document.createElement('h2');
-    title.textContent = 'Welcome to Astromine!';
-    title.style.color = '#00ffcc';
-    title.style.marginBottom = '1rem';
-    
+// Function to create the music control button
+function createMusicControlButton() {
     const button = document.createElement('button');
-    button.className = 'start-game-button';
-    button.textContent = 'Start Game';
+    button.className = 'music-control-button';
+    button.innerHTML = `▶️ <span class="button-text">Play Music</span>`; // Initial state
+    button.style.position = 'fixed';
+    button.style.bottom = '20px';
+    button.style.right = '20px';
+    button.style.zIndex = '100';
     
-    button.addEventListener('click', () => {
-        // Start the game
-        gameStarted = true;
-        popup.remove();
-        
-        // Start the space background sound
-        if (soundEnabled && spaceSoundBuffer) {
-            playSpaceSound();
+    button.addEventListener('click', async () => {
+        try {
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+            
+            soundEnabled = !soundEnabled;
+            // Update button text and icon based on sound state
+            if (soundEnabled) {
+                button.innerHTML = `⏸️ <span class="button-text">Pause Music</span>`;
+                if (spaceSoundBuffer) {
+                    playSpaceSound();
+                }
+            } else {
+                button.innerHTML = `▶️ <span class="button-text">Play Music</span>`;
+                if (spaceSoundSource) {
+                    spaceSoundSource.stop();
+                }
+            }
+        } catch (error) {
+            console.error('Error toggling sound:', error);
         }
-        
-        // Resume audio context if suspended
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
-        
-        // Enable tool buttons
-        enableToolButtons();
     });
     
-    popup.appendChild(title);
-    popup.appendChild(button);
-    
-    document.body.appendChild(popup);
+    document.body.appendChild(button);
 }
 
-// Call this function after the page loads
-createStartGamePopup();
+// Call this function after page loads
+createMusicControlButton();
 
 // Function to load the sound file
 async function loadSound(url) {
@@ -1229,6 +1227,7 @@ class DustExplosion {
     }
     
     playShovelSound() {
+        if (!soundEnabled) return; // Only play if sound is enabled
         try {
             if (audioContext.state === 'suspended') {
                 audioContext.resume();
@@ -1245,6 +1244,7 @@ class DustExplosion {
     }
 
     playFuseSound() {
+        if (!soundEnabled) return; // Only play if sound is enabled
         try {
             if (audioContext.state === 'suspended') {
                 audioContext.resume();
@@ -1261,6 +1261,7 @@ class DustExplosion {
     }
 
     playExplosionSound() {
+        if (!soundEnabled) return; // Only play if sound is enabled
         try {
             if (audioContext.state === 'suspended') {
                 audioContext.resume();
@@ -2289,55 +2290,6 @@ function createShopButton() {
 const shopButton = createShopButton();
 document.body.appendChild(shopButton);
 
-// Add sound toggle button
-const soundButton = document.createElement('button');
-soundButton.textContent = '🔊';
-soundButton.style.position = 'fixed';
-soundButton.style.bottom = '20px';
-soundButton.style.right = '20px';
-soundButton.style.zIndex = '100';
-soundButton.addEventListener('click', async () => {
-    try {
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-        }
-        
-        soundEnabled = !soundEnabled;
-        soundButton.textContent = soundEnabled ? '🔊' : '🔇';
-        
-        // Handle space background sound
-        if (soundEnabled && spaceSoundBuffer) {
-            playSpaceSound();
-        } else if (spaceSoundSource) {
-            spaceSoundSource.stop();
-        }
-    } catch (error) {
-        console.error('Error toggling sound:', error);
-    }
-});
-document.body.appendChild(soundButton);
-
-// Add this function to resume audio context on first interaction
-function initAudio() {
-    const handleFirstInteraction = () => {
-        if (audioContext.state === 'suspended') {
-            audioContext.resume().then(() => {
-                console.log('Audio context resumed successfully');
-            }).catch(error => {
-                console.error('Error resuming audio context:', error);
-            });
-        }
-        document.removeEventListener('click', handleFirstInteraction);
-        document.removeEventListener('touchstart', handleFirstInteraction);
-    };
-    
-    document.addEventListener('click', handleFirstInteraction);
-    document.addEventListener('touchstart', handleFirstInteraction);
-}
-
-// Call the audio initialization
-initAudio();
-
 // Add this function to check audio context state
 function checkAudioContext() {
     console.log('Audio context state:', audioContext.state);
@@ -2351,7 +2303,7 @@ setInterval(checkAudioContext, 5000);
 
 // Add this function to play the space background sound
 function playSpaceSound() {
-    if (!gameStarted || !soundEnabled || !spaceSoundBuffer) return;
+    if (!soundEnabled || !spaceSoundBuffer) return; // Only play if sound is enabled
     
     try {
         if (audioContext.state === 'suspended') {

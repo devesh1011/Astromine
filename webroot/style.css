@@ -449,47 +449,64 @@ canvas {
     animation: icon-bounce 1s infinite alternate;
 }
 
-@keyframes icon-bounce {
+.music-control-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    background: linear-gradient(145deg, #ff6b6b, #ff3838);
+    border: 2px solid #ff0;
+    border-radius: 50px;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    z-index: 100;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    animation: retro-glow 1.5s infinite alternate;
+    transition: all 0.3s ease;
+    font-family: 'Press Start 2P', cursive;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.music-control-button .button-text {
+    font-size: 0.8rem;
+    text-shadow: none;
+}
+
+@keyframes retro-glow {
     0% {
-        transform: translateY(0);
+        box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        border-color: #ff0;
+        text-shadow: 0 0 5px rgba(255, 0, 0, 0.8);
     }
     100% {
-        transform: translateY(-3px);
+        box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+        border-color: #ff8;
+        text-shadow: 0 0 10px rgba(255, 0, 0, 1);
     }
 }
-.start-game-popup {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: rgba(0, 0, 0, 0.9);
-    padding: 2rem;
-    border-radius: 10px;
-    text-align: center;
-    z-index: 1000;
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
-    border: 2px solid #00ffcc;
+
+.music-control-button:hover {
+    transform: scale(1.1);
+    background: linear-gradient(145deg, #ff3838, #ff6b6b);
+    animation: retro-pulse 0.5s infinite alternate;
 }
 
-.start-game-button {
-    background: linear-gradient(145deg, #00ffcc, #0099ff);
-    border: none;
-    padding: 1rem 2rem;
-    font-size: 1.2rem;
-    color: white;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-transform: uppercase;
-    font-weight: bold;
-    letter-spacing: 1px;
+@keyframes retro-pulse {
+    0% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1.15);
+    }
 }
 
-.start-game-button:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 15px rgba(0, 255, 204, 0.5);
-}
-
-.start-game-button:active {
+.music-control-button:active {
     transform: scale(0.95);
+    box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
 }
