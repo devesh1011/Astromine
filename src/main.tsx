@@ -1,4 +1,4 @@
-import "./createPost.tsx";
+import "./createPost.js";
 import { Devvit, useAsync, useWebView, useState } from "@devvit/public-api";
 
 // Define the shape of our message types
