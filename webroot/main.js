@@ -15,10 +15,178 @@ const loadingContainer = document.getElementById('loadingContainer');
 const loadingProgress = document.getElementById('loadingProgress');
 const loadingText = document.getElementById('loadingText');
 
+// Add this near the top with other DOM elements
+const scoreCard = document.createElement('div');
+scoreCard.className = 'score-card';
+scoreCard.innerHTML = `
+  <h3>Mined Resources</h3>
+  <div class="score-item">
+    <span class="label">CARBON:</span>
+    <span class="value" id="carbonScore">0</span>
+  </div>
+  <div class="score-item">
+    <span class="label">NICKEL:</span>
+    <span class="value" id="nickelScore">0</span>
+  </div>
+  <div class="score-item">
+    <span class="label">IRON:</span>
+    <span class="value" id="ironScore">0</span>
+  </div>
+  <div class="score-item">
+    <span class="label">GOLD:</span>
+    <span class="value" id="goldScore">0</span>
+  </div>
+  <div class="score-item">
+    <span class="label">PLATINUM:</span>
+    <span class="value" id="platinumScore">0</span>
+  </div>
+`;
+document.body.appendChild(scoreCard);
+
+// Add this near the top with other variables
+const resources = {
+  CARBON: 0,
+  NICKEL: 0,
+  IRON: 0,
+  GOLD: 0,
+  PLATINUM: 0
+};
+
+// Modify the resource ratios and probabilities
+const resourceRatios = {
+  CARBON: 10,
+  NICKEL: 8,
+  IRON: 5,
+  GOLD: 4,    // Increased from 2
+  PLATINUM: 0.6 // Increased from 0.3
+};
+
+// Add this near the top with other variables
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+let soundEnabled = false; // Changed from true to false
+let shovelSoundBuffer = null;
+let fuseSoundBuffer = null;
+let explosionSoundBuffer = null;
+let spaceSoundBuffer = null;
+let spaceSoundSource = null;
+
+// Add this near the top with other variables
+let gameStarted = true; // Set game as started by default
+
+// Function to create the music control button
+function createMusicControlButton() {
+    const button = document.createElement('button');
+    button.className = 'music-control-button';
+    button.innerHTML = `▶️ <span class="button-text">Play Music</span>`; // Initial state
+    button.style.position = 'fixed';
+    button.style.bottom = '20px';
+    button.style.right = '20px';
+    button.style.zIndex = '100';
+    
+    button.addEventListener('click', async () => {
+        try {
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+            
+            soundEnabled = !soundEnabled;
+            // Update button text and icon based on sound state
+            if (soundEnabled) {
+                button.innerHTML = `⏸️ <span class="button-text">Pause Music</span>`;
+                if (spaceSoundBuffer) {
+                    playSpaceSound();
+                }
+            } else {
+                button.innerHTML = `▶️ <span class="button-text">Play Music</span>`;
+                if (spaceSoundSource) {
+                    spaceSoundSource.stop();
+                }
+            }
+        } catch (error) {
+            console.error('Error toggling sound:', error);
+        }
+    });
+    
+    document.body.appendChild(button);
+}
+
+// Call this function after page loads
+createMusicControlButton();
+
+// Function to load the sound file
+async function loadSound(url) {
+    try {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        return await audioContext.decodeAudioData(arrayBuffer);
+    } catch (error) {
+        console.error('Error loading sound:', error);
+        return null;
+    }
+}
+
+// Load all sound files when the page loads
+Promise.all([
+    loadSound('shovel.mp3'),
+    loadSound('fuse.mp3'),
+    loadSound('explosion.mp3'),
+    loadSound('space.mp3')
+]).then(([shovel, fuse, explosion, space]) => {
+    shovelSoundBuffer = shovel;
+    fuseSoundBuffer = fuse;
+    explosionSoundBuffer = explosion;
+    spaceSoundBuffer = space;
+    console.log('All sounds loaded successfully');
+    
+    // Start playing the space background sound
+    playSpaceSound();
+});
+
+// Add this function to update the score card
+function updateScoreCard() {
+  const scoreElements = {
+    carbonScore: document.getElementById('carbonScore'),
+    nickelScore: document.getElementById('nickelScore'),
+    ironScore: document.getElementById('ironScore'),
+    goldScore: document.getElementById('goldScore'),
+    platinumScore: document.getElementById('platinumScore')
+  };
+
+  // Add a retro-style number roll effect
+  Object.keys(scoreElements).forEach((key, index) => {
+    const element = scoreElements[key];
+    const targetValue = resources[key.replace('Score', '').toUpperCase()];
+    
+    // Create a temporary element for the roll effect
+    const tempElement = document.createElement('span');
+    tempElement.className = 'value';
+    tempElement.textContent = element.textContent;
+    tempElement.style.position = 'absolute';
+    tempElement.style.color = '#f00';
+    tempElement.style.textShadow = '0 0 5px #f00';
+    element.parentNode.appendChild(tempElement);
+    
+    // Animate the roll
+    let currentValue = parseInt(element.textContent);
+    const interval = setInterval(() => {
+      if (currentValue < targetValue) {
+        currentValue += Math.ceil((targetValue - currentValue) / 10);
+        if (currentValue > targetValue) currentValue = targetValue;
+        element.textContent = currentValue;
+        tempElement.style.transform = `translateY(${(currentValue / targetValue) * -10}px)`;
+        tempElement.style.opacity = 1 - (currentValue / targetValue);
+        } else {
+        clearInterval(interval);
+        tempElement.remove();
+      }
+    }, 50);
+  });
+}
+
 // Scene setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(5, 2, 5);
+camera.position.set(8, 3, 8); // Changed from (5, 2, 5) to (8, 3, 8) for a more zoomed-out view
 
 // Initialize clock
 const clock = new THREE.Clock();
@@ -58,37 +226,21 @@ const TOOL_SETTINGS = {
     'shovel': {
         sparkDuration: 3.0,
         explosionDuration: 3.0,
-        explosionSize: 0.6,
+        explosionSize: 0.3,
         cursor: 'crosshair'
     },
     'dynamite': {
         sparkDuration: 8.0,
         explosionDuration: 4.0,
-        explosionSize: 0.8,
+        explosionSize: 0.5,
         cursor: 'crosshair'
     }
 };
 
-// Add toggle button for auto-rotation
-const autoRotateButton = document.createElement('button');
-autoRotateButton.id = 'autoRotateButton';
-autoRotateButton.className = 'ui-button';
-autoRotateButton.textContent = 'Toggle Auto-Rotate';
-autoRotateButton.addEventListener('click', () => {
-    autoRotate = !autoRotate;
-    autoRotateButton.textContent = autoRotate ? 'Stop Rotation' : 'Start Rotation';
-});
-document.body.appendChild(autoRotateButton);
 
 // Add tool selector
 const toolSelector = document.createElement('div');
-toolSelector.id = 'toolSelector';
-toolSelector.style.position = 'fixed';
-toolSelector.style.top = '20px';
-toolSelector.style.right = '160px';
-toolSelector.style.zIndex = '100';
-toolSelector.style.display = 'flex';
-toolSelector.style.gap = '10px';
+toolSelector.className = 'tool-selector'; // Changed from id to class
 document.body.appendChild(toolSelector);
 
 // Create tool buttons with icons
@@ -96,36 +248,41 @@ function createToolButton(tool, icon, label) {
     const button = document.createElement('button');
     button.className = 'tool-button';
     button.dataset.tool = tool;
-    button.style.width = '50px';
-    button.style.height = '50px';
-    button.style.borderRadius = '8px';
+    button.style.width = '60px';
+    button.style.height = '60px';
+    button.style.borderRadius = '10px';
     button.style.background = tool === currentTool ? '#4466ff' : '#333';
     button.style.color = 'white';
-    button.style.border = 'none';
     button.style.cursor = 'pointer';
     button.style.display = 'flex';
     button.style.flexDirection = 'column';
     button.style.alignItems = 'center';
     button.style.justifyContent = 'center';
-    button.style.fontSize = '10px';
-    button.style.padding = '5px';
-    button.style.transition = 'all 0.2s ease';
-    button.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
-    
-    // Icon
+    button.style.fontSize = '12px';
+    button.style.padding = '8px';
+    button.style.transition = 'all 0.3s ease';
+
+    // Icon container
     const iconElement = document.createElement('div');
+    iconElement.className = 'icon';
     iconElement.innerHTML = icon;
     iconElement.style.marginBottom = '5px';
-    iconElement.style.width = '24px';
-    iconElement.style.height = '24px';
-    
-    // Label
+    iconElement.style.width = '32px';  // Larger icons
+    iconElement.style.height = '32px';
+    iconElement.style.fontSize = '32px';
+    iconElement.style.textShadow = '0 0 5px rgba(255, 255, 0, 0.8)';
+
+    // Label container
     const labelElement = document.createElement('span');
+    labelElement.className = 'label';
     labelElement.textContent = label;
-    
+    labelElement.style.textTransform = 'uppercase';
+    labelElement.style.fontWeight = 'bold';
+    labelElement.style.letterSpacing = '1px';
+
     button.appendChild(iconElement);
     button.appendChild(labelElement);
-    
+
     // Event handler
     button.addEventListener('click', () => {
         // Update current tool
@@ -133,10 +290,22 @@ function createToolButton(tool, icon, label) {
         
         // Update all button styles
         document.querySelectorAll('.tool-button').forEach(btn => {
-            btn.style.background = btn.dataset.tool === currentTool ? '#4466ff' : '#333';
+            btn.classList.remove('active');
+            btn.style.background = btn.dataset.tool === currentTool ? 
+                'linear-gradient(145deg, #4466ff, #2233aa)' : 
+                'linear-gradient(145deg, #333, #000)';
         });
+        
+        // Add active class to clicked button
+        button.classList.add('active');
+        
+        // Add a click effect
+        button.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+            button.style.transform = 'scale(1)';
+        }, 100);
     });
-    
+
     return button;
 }
 
@@ -148,35 +317,17 @@ const dynamiteIcon = `<div style="font-size: 24px; line-height: 1;">💣</div>`;
 
 // Add tool buttons to selector
 toolSelector.appendChild(createToolButton('shovel', shovelIcon, 'Shovel'));
-toolSelector.appendChild(createToolButton('dynamite', dynamiteIcon, 'Dynamite'));
+toolSelector.appendChild(createToolButton('dynamite', dynamiteIcon, 'Boom')); // Changed from 'Dynamite' to 'Boom'
 
-// Add quality settings control
-const qualitySelector = document.createElement('select');
-qualitySelector.id = 'qualitySelector';
-qualitySelector.className = 'ui-dropdown';
-qualitySelector.style.position = 'fixed';
-qualitySelector.style.top = '20px';
-qualitySelector.style.right = '20px';
-
+// Define quality settings - always set to high
 const qualities = [
     { name: 'Low', bloom: false, ssao: false, shadows: false },
     { name: 'Medium', bloom: true, ssao: false, shadows: true },
     { name: 'High', bloom: true, ssao: true, shadows: true }
 ];
 
-qualities.forEach((quality, index) => {
-    const option = document.createElement('option');
-    option.value = index;
-    option.textContent = quality.name + ' Quality';
-    qualitySelector.appendChild(option);
-});
-
-qualitySelector.value = 2; // Default to high quality
-qualitySelector.addEventListener('change', () => {
-    const quality = qualities[qualitySelector.value];
-    updateQuality(quality);
-});
-document.body.appendChild(qualitySelector);
+// Always use high quality (index 2)
+const quality = qualities[2];
 
 // Function to update quality settings
 function updateQuality(quality) {
@@ -186,6 +337,9 @@ function updateQuality(quality) {
     // Rebuild the post-processing pipeline
     createPostProcessingEffects(quality);
 }
+
+// Apply high quality settings
+updateQuality(quality);
 
 // Lighting
 function setupLighting() {
@@ -312,15 +466,93 @@ function setupFallbackEnvironment() {
     scene.environment = cubeRenderTarget.texture;
 }
 
-// Create a realistic rock texture
+// Add this function to generate random asteroid configurations
+function getRandomAsteroidConfig() {
+    // Random seed to ensure consistent generation for a single asteroid
+    const seed = Math.floor(Math.random() * 1000000);
+    
+    return {
+        // Base color variations from gray to brownish to reddish to bluish
+        baseColor: new THREE.Color().setHSL(
+            // Hue: Wide range of possible asteroid colors
+            Math.random() < 0.7 ? 
+                // 70% chance of being gray/brown/red (0.02-0.1)
+                (0.02 + Math.random() * 0.08) : 
+                // 30% chance of other colors (blue/green/purple tints)
+                (0.3 + Math.random() * 0.6),
+            // Saturation: From almost gray to more saturated
+            0.1 + Math.random() * 0.4,
+            // Lightness: From darker to lighter
+            0.2 + Math.random() * 0.3
+        ),
+        
+        // Texture variations
+        texture: {
+            // How bumpy the texture appears
+            roughness: 0.5 + Math.random() * 0.4,
+            // How metallic the asteroid appears
+            metalness: 0.05 + Math.random() * 0.3,
+            // Scale of the texture details
+            detailScale: 0.7 + Math.random() * 0.6,
+            // Number of craters
+            craterDensity: 0.5 + Math.random() * 1.0,
+            // Contrast of the texture
+            contrast: 0.7 + Math.random() * 0.5,
+            // Base texture brightness
+            brightness: 0.7 + Math.random() * 0.5
+        },
+        
+        // Shape variations
+        shape: {
+            // Overall deformation strength
+            deformStrength: 0.2 + Math.random() * 0.3,
+            // Number of major features (mountains, craters)
+            featureCount: 3 + Math.floor(Math.random() * 8),
+            // Smoothness of the overall shape
+            smoothness: 0.3 + Math.random() * 1.2,
+            // Seed for shape generation
+            seed: seed
+        },
+        
+        // Noise variations for surface details
+        noise: {
+            // Strength of different noise frequencies
+            largeFeatures: 0.4 + Math.random() * 0.2,
+            mediumFeatures: 0.2 + Math.random() * 0.15,
+            smallFeatures: 0.1 + Math.random() * 0.15,
+            tinyFeatures: 0.05 + Math.random() * 0.1,
+            microFeatures: 0.02 + Math.random() * 0.05,
+            // Smoothness of noise transitions
+            turbulence: 0.5 + Math.random() * 1.0
+        }
+    };
+}
+
+// Store current asteroid configuration
+let currentAsteroidConfig = getRandomAsteroidConfig();
+
+// Create a realistic rock texture with randomization
 function createRockTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 2048; // Higher resolution texture
     canvas.height = 2048;
     const context = canvas.getContext('2d');
     
-    // Fill with lighter base color for better visibility
-    context.fillStyle = '#5a5a4e';
+    // Get current configuration
+    const config = currentAsteroidConfig;
+    
+    // Generate base color from config
+    const baseColorHSL = config.baseColor.getHSL({});
+    const baseColorRGB = {
+        r: Math.floor(config.baseColor.r * 255),
+        g: Math.floor(config.baseColor.g * 255),
+        b: Math.floor(config.baseColor.b * 255)
+    };
+    
+    // Fill with base color adjusted by brightness
+    context.fillStyle = `rgb(${Math.floor(baseColorRGB.r * config.texture.brightness)}, 
+                             ${Math.floor(baseColorRGB.g * config.texture.brightness)}, 
+                             ${Math.floor(baseColorRGB.b * config.texture.brightness)})`;
     context.fillRect(0, 0, canvas.width, canvas.height);
     
     // Create a noisy background pattern
@@ -339,16 +571,21 @@ function createRockTexture() {
             const idx = (y * noiseCanvas.width + x) * 4;
             
             // Sample at different frequencies for more natural look
-            const highFreq = Math.random() * 0.15;
-            const midFreq = Math.sin(x/20) * Math.cos(y/20) * 0.15;
-            const lowFreq = Math.sin(x/200 + y/100) * 0.2;
+            // Apply turbulence factor from config to control noise transitions
+            const turbFactor = config.noise.turbulence;
+            const highFreq = Math.random() * 0.15 * config.noise.microFeatures;
+            const midFreq = Math.sin(x/(20 * turbFactor)) * Math.cos(y/(20 * turbFactor)) * 0.15 * config.noise.smallFeatures;
+            const lowFreq = Math.sin(x/(200 * turbFactor) + y/(100 * turbFactor)) * 0.2 * config.noise.mediumFeatures;
             
             // Combine frequencies for natural detail
             let noiseVal = highFreq + midFreq + lowFreq;
             noiseVal = (noiseVal + 1) * 0.5; // Normalize to 0-1
             
-            // Apply to create grayscale noise - brightened
-            const colorVal = Math.floor(noiseVal * 90) + 60;
+            // Apply contrast from config
+            noiseVal = 0.5 + (noiseVal - 0.5) * config.texture.contrast;
+            
+            // Apply to create grayscale noise - brightened and scaled by config
+            const colorVal = Math.floor(noiseVal * 90 * config.texture.brightness) + 60;
             data[idx] = colorVal;
             data[idx+1] = colorVal;
             data[idx+2] = colorVal;
@@ -365,8 +602,9 @@ function createRockTexture() {
     
     // Add different types of surface features
     
-    // Medium-sized rocky outcrops and depressions (100-300)
-    for (let i = 0; i < 200; i++) {
+    // Medium-sized rocky outcrops and depressions - scaled by config
+    const outcropsCount = Math.floor(200 * config.texture.detailScale);
+    for (let i = 0; i < outcropsCount; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
         const radius = Math.random() * 60 + 40;
@@ -376,18 +614,18 @@ function createRockTexture() {
         let r, g, b;
         
         if (rockType < 0.4) {
-            // Dark gray rocks - brightened
-            r = Math.floor(70 + Math.random() * 30);
-            g = Math.floor(r - 5 + Math.random() * 10);
-            b = Math.floor(r - 10 + Math.random() * 8);
+            // Dark gray rocks - brightened, adjusted by base color
+            r = Math.floor((70 + Math.random() * 30) * (baseColorRGB.r / 128));
+            g = Math.floor((r - 5 + Math.random() * 10) * (baseColorRGB.g / 128));
+            b = Math.floor((r - 10 + Math.random() * 8) * (baseColorRGB.b / 128));
         } else if (rockType < 0.7) {
-            // Brownish rocks - brightened
-            r = Math.floor(90 + Math.random() * 30);
-            g = Math.floor(r - 20 + Math.random() * 15);
-            b = Math.floor(g - 30 + Math.random() * 10);
+            // Brownish rocks - brightened, adjusted by base color
+            r = Math.floor((90 + Math.random() * 30) * (baseColorRGB.r / 128));
+            g = Math.floor((r - 20 + Math.random() * 15) * (baseColorRGB.g / 128));
+            b = Math.floor((g - 30 + Math.random() * 10) * (baseColorRGB.b / 128));
         } else {
-            // Light gray rocks - brightened
-            r = Math.floor(110 + Math.random() * 40);
+            // Light gray rocks - brightened, adjusted by base color
+            r = Math.floor((110 + Math.random() * 40) * (baseColorRGB.r / 128));
             g = r - Math.floor(Math.random() * 10);
             b = g - Math.floor(Math.random() * 15);
         }
@@ -437,14 +675,15 @@ function createRockTexture() {
         context.restore();
     }
     
-    // Craters (60-120)
-    for (let i = 0; i < 90; i++) {
+    // Craters - scaled by config
+    const craterCount = Math.floor(90 * config.texture.craterDensity);
+    for (let i = 0; i < craterCount; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
         const radius = Math.random() * 50 + 20;
         
-        // Randomize the color for crater
-        const shade = Math.floor(60 + Math.random() * 30);
+        // Randomize the color for crater - adjusted by base color
+        const shade = Math.floor((60 + Math.random() * 30) * (baseColorHSL.l * 1.5));
         
         // Create the crater pit
         context.beginPath();
@@ -497,16 +736,17 @@ function createRockTexture() {
         }
     }
     
-    // Small detailed rocks and pebbles (thousands)
-    for (let i = 0; i < 8000; i++) {
+    // Small detailed rocks and pebbles - scaled by configuration
+    const pebblesCount = Math.floor(8000 * config.texture.detailScale);
+    for (let i = 0; i < pebblesCount; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
         const radius = Math.random() * 4 + 1;
         
-        // Random gray-brown shades
-        const r = Math.floor(70 + Math.random() * 60);
-        const g = Math.floor(r - 15 + Math.random() * 20);
-        const b = Math.floor(g - 25 + Math.random() * 15);
+        // Random shades based on base color
+        const r = Math.floor((70 + Math.random() * 60) * (baseColorRGB.r / 128));
+        const g = Math.floor((r - 15 + Math.random() * 20) * (baseColorRGB.g / 128));
+        const b = Math.floor((g - 25 + Math.random() * 15) * (baseColorRGB.b / 128));
         
         context.beginPath();
         
@@ -553,18 +793,19 @@ function createRockTexture() {
         const radius = Math.random() * 200 + 100;
         
         // Subtle color tints - yellowish/reddish/bluish mineral deposits
+        // Adjusted by base color
         const tintType = Math.floor(Math.random() * 3);
         let tint;
         
         if (tintType === 0) {
             // Subtle reddish (iron oxide)
-            tint = `rgba(130, 60, 40, 0.1)`;
+            tint = `rgba(${Math.floor(130 * baseColorRGB.r/128)}, ${Math.floor(60 * baseColorRGB.g/128)}, ${Math.floor(40 * baseColorRGB.b/128)}, 0.1)`;
         } else if (tintType === 1) {
             // Subtle yellowish (sulfur)
-            tint = `rgba(140, 130, 40, 0.08)`;
+            tint = `rgba(${Math.floor(140 * baseColorRGB.r/128)}, ${Math.floor(130 * baseColorRGB.g/128)}, ${Math.floor(40 * baseColorRGB.b/128)}, 0.08)`;
         } else {
             // Subtle bluish-gray (nickel)
-            tint = `rgba(70, 80, 100, 0.12)`;
+            tint = `rgba(${Math.floor(70 * baseColorRGB.r/128)}, ${Math.floor(80 * baseColorRGB.g/128)}, ${Math.floor(100 * baseColorRGB.b/128)}, 0.12)`;
         }
         
         const gradient = context.createRadialGradient(
@@ -691,6 +932,9 @@ function createRoughnessMap(diffuseMap) {
 
 // Create asteroid procedurally with enhanced detail
 function createProceduralAsteroid() {
+    // Get current asteroid configuration
+    const config = currentAsteroidConfig;
+    
     // Create asteroid geometry with higher resolution for more detail
     const asteroidGeometry = new THREE.SphereGeometry(2, 192, 192);
     
@@ -700,6 +944,7 @@ function createProceduralAsteroid() {
     const vertex = new THREE.Vector3();
     const normal = new THREE.Vector3();
     
+    // Create a new simplex with the configured seed
     const simplex = new SimplexNoise();
     
     for (let i = 0; i < positions.count; i++) {
@@ -712,21 +957,22 @@ function createProceduralAsteroid() {
         const nz = vertex.z / 2;
         
         // Use multiple octaves of simplex noise for natural terrain
-        const noise1 = simplex.noise3D(nx * 1, ny * 1, nz * 1) * 0.5;       // Large features
-        const noise2 = simplex.noise3D(nx * 2, ny * 2, nz * 2) * 0.25;      // Medium features
-        const noise3 = simplex.noise3D(nx * 4, ny * 4, nz * 4) * 0.125;     // Small features
-        const noise4 = simplex.noise3D(nx * 8, ny * 8, nz * 8) * 0.0625;    // Tiny details
-        const noise5 = simplex.noise3D(nx * 16, ny * 16, nz * 16) * 0.03125; // Micro details
+        // Scale each frequency by the configuration values
+        const noise1 = simplex.noise3D(nx * 1, ny * 1, nz * 1) * config.noise.largeFeatures;
+        const noise2 = simplex.noise3D(nx * 2, ny * 2, nz * 2) * config.noise.mediumFeatures;
+        const noise3 = simplex.noise3D(nx * 4, ny * 4, nz * 4) * config.noise.smallFeatures;
+        const noise4 = simplex.noise3D(nx * 8, ny * 8, nz * 8) * config.noise.tinyFeatures;
+        const noise5 = simplex.noise3D(nx * 16, ny * 16, nz * 16) * config.noise.microFeatures;
         
         // Combine multiple frequency noises for natural-looking terrain
         let noise = noise1 + noise2 + noise3 + noise4 + noise5;
         
         // Add some local deformation "hotspots" for major features
-        const distortionPoints = 5; // Number of major features
+        const distortionPoints = config.shape.featureCount; // Number of major features
         for (let j = 0; j < distortionPoints; j++) {
-            // Random point on sphere
-            const angle1 = j * Math.PI * (3 - Math.sqrt(5)); // Fibonacci spiral
-            const angle2 = j * 2 * Math.PI / distortionPoints;
+            // Random point on sphere based on config seed
+            const angle1 = j * Math.PI * (3 - Math.sqrt(5)) + config.shape.seed * 0.01;
+            const angle2 = j * 2 * Math.PI / distortionPoints + config.shape.seed * 0.02;
             
             const px = Math.sin(angle1) * Math.cos(angle2);
             const py = Math.sin(angle1) * Math.sin(angle2);
@@ -741,7 +987,8 @@ function createProceduralAsteroid() {
             const distSq = dx*dx + dy*dy + dz*dz;
             
             // Add stronger deformation near hotspots (inverse square falloff)
-            const deform = 0.5 / (1 + distSq * 10);
+            // Adjusted by smoothness from configuration
+            const deform = 0.5 / (1 + distSq * (10 * config.shape.smoothness));
             
             // Change sign randomly for some hotspots to create both mountains and craters
             const sign = (j % 2 === 0) ? 1 : -1;
@@ -753,7 +1000,8 @@ function createProceduralAsteroid() {
         const distance = vertex.length();
         
         // Use noise itself to determine deformation strength for more varied terrain
-        const deformationStrength = 0.3 + Math.abs(noise) * 0.3;
+        // Adjusted by configuration deformStrength
+        const deformationStrength = 0.3 + Math.abs(noise) * 0.3 * config.shape.deformStrength;
         const deformation = 1 + noise * deformationStrength;
         
         // Apply deformation along normal for more natural shape
@@ -782,9 +1030,9 @@ function createProceduralAsteroid() {
         displacementMap: displacementMap,
         displacementScale: 0.15,
         displacementBias: -0.05,
-        roughness: 0.8,
-        metalness: 0.15,
-        color: 0x706a60,
+        roughness: config.texture.roughness,
+        metalness: config.texture.metalness,
+        color: config.baseColor,
         envMapIntensity: 0.5,
         flatShading: false,
     });
@@ -795,7 +1043,7 @@ function createProceduralAsteroid() {
     
     modelGroup.add(asteroid);
     
-    console.log("Created enhanced natural-looking asteroid");
+    console.log("Created enhanced natural-looking asteroid with configuration:", config);
     return asteroid;
 }
 
@@ -958,11 +1206,74 @@ class DustExplosion {
         // Stop the rotation when tool is active
         if (autoRotate) {
             autoRotate = false;
-            autoRotateButton.textContent = 'Start Rotation';
         }
         
         // Create spark particles first
         this.createSparkParticles();
+        
+        // Add sound handling
+        this.shovelSound = null;
+        this.shovelSoundSource = null;
+        this.fuseSoundSource = null;
+        this.explosionSoundSource = null;
+        
+        if (this.toolType === 'shovel' && soundEnabled && shovelSoundBuffer) {
+            this.playShovelSound();
+        } else if (this.toolType === 'dynamite') {
+            if (soundEnabled && fuseSoundBuffer) {
+                this.playFuseSound();
+            }
+        }
+    }
+    
+    playShovelSound() {
+        if (!soundEnabled) return; // Only play if sound is enabled
+        try {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            const source = audioContext.createBufferSource();
+            source.buffer = shovelSoundBuffer;
+            source.connect(audioContext.destination);
+            source.start(0);
+            source.stop(audioContext.currentTime + 3);
+        } catch (error) {
+            console.error('Error playing shovel sound:', error);
+        }
+    }
+
+    playFuseSound() {
+        if (!soundEnabled) return; // Only play if sound is enabled
+        try {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            this.fuseSoundSource = audioContext.createBufferSource();
+            this.fuseSoundSource.buffer = fuseSoundBuffer;
+            this.fuseSoundSource.connect(audioContext.destination);
+            this.fuseSoundSource.start(0);
+            this.fuseSoundSource.stop(audioContext.currentTime + 8);
+        } catch (error) {
+            console.error('Error playing fuse sound:', error);
+        }
+    }
+
+    playExplosionSound() {
+        if (!soundEnabled) return; // Only play if sound is enabled
+        try {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            this.explosionSoundSource = audioContext.createBufferSource();
+            this.explosionSoundSource.buffer = explosionSoundBuffer;
+            this.explosionSoundSource.connect(audioContext.destination);
+            this.explosionSoundSource.start(0);
+        } catch (error) {
+            console.error('Error playing explosion sound:', error);
+        }
     }
     
     // Create initial spark particles for drilling effect
@@ -1404,6 +1715,24 @@ class DustExplosion {
             // Transition to explosion phase
             this.explosionStarted = true;
             this.createExplosionParticles();
+            
+            // Add resources when mining finishes
+            this.addResources();
+            
+            // Stop the shovel sound if it's still playing
+            if (this.toolType === 'shovel' && this.shovelSoundSource) {
+                this.shovelSoundSource.stop();
+            }
+            
+            // Stop the fuse sound and play explosion sound for dynamite
+            if (this.toolType === 'dynamite') {
+                if (this.fuseSoundSource) {
+                    this.fuseSoundSource.stop();
+                }
+                if (soundEnabled && explosionSoundBuffer) {
+                    this.playExplosionSound();
+                }
+            }
         }
         
         // Phase 2: Explosion and aftermath
@@ -1420,7 +1749,6 @@ class DustExplosion {
             // When explosion is complete, restore auto-rotation if it was on before
             if (this.wasAutoRotating && !autoRotate) {
                 autoRotate = true;
-                autoRotateButton.textContent = 'Stop Rotation';
             }
             
             return;
@@ -1712,6 +2040,25 @@ class DustExplosion {
             this.group.add(spark);
         }
     }
+
+    addResources() {
+        const resourceTypes = ['CARBON', 'NICKEL', 'IRON', 'GOLD', 'PLATINUM'];
+        const randomResource = resourceTypes[Math.floor(Math.random() * resourceTypes.length)];
+        
+        // Calculate the amount based on the ratio
+        const baseAmount = Math.floor(Math.random() * 5) + 1;
+        let amount = Math.round(baseAmount * resourceRatios[randomResource]);
+        
+        // Double the amount for dynamite
+        if (this.toolType === 'dynamite') {
+            amount *= 2;
+        }
+        
+        resources[randomResource] += amount;
+        
+        // Update the score card
+        updateScoreCard();
+    }
 }
 
 // Animation
@@ -1809,6 +2156,8 @@ function setupInteraction() {
     
     // Click event for dust explosion
     window.addEventListener('click', (event) => {
+        if (!gameStarted) return;
+        
         // Calculate mouse position in normalized device coordinates
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -1840,6 +2189,9 @@ function setupInteraction() {
 
 // Initialize the scene
 async function init() {
+    // Generate new asteroid configuration each time
+    currentAsteroidConfig = getRandomAsteroidConfig();
+    
     setupLighting();
     setupInteraction();
     
@@ -1863,12 +2215,8 @@ async function init() {
             setupFallbackEnvironment();
         });
         
-        // Setup post-processing based on the default quality
-        const quality = qualities[qualitySelector.value];
+        // Setup post-processing with high quality
         createPostProcessingEffects(quality);
-        
-        // Update button text to match initial state
-        autoRotateButton.textContent = autoRotate ? 'Stop Rotation' : 'Start Rotation';
         
         // Start animation loop
         animate();
@@ -1911,3 +2259,72 @@ async function init() {
 
 // Start the application
 window.initAsteroid = init;
+
+// Add shop button creation
+function createShopButton() {
+    const button = document.createElement('button');
+    button.className = 'shop-button';
+    
+    // Add icon and text
+    button.innerHTML = `
+        <span class="icon">🛒</span>
+        <span class="text">SHOP</span>
+    `;
+    
+    // Add click handler
+    button.addEventListener('click', () => {
+        // Add a click animation
+        button.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+            button.style.transform = 'scale(1)';
+        }, 100);
+        
+        // Redirect to shop page (to be implemented later)
+        window.location.href = 'shop.html';
+    });
+    
+    return button;
+}
+
+// Add shop button to the page
+const shopButton = createShopButton();
+document.body.appendChild(shopButton);
+
+// Add this function to check audio context state
+function checkAudioContext() {
+    console.log('Audio context state:', audioContext.state);
+    if (audioContext.state === 'suspended') {
+        console.log('Audio context is suspended. User interaction required.');
+    }
+}
+
+// Call this periodically to monitor audio state
+setInterval(checkAudioContext, 5000);
+
+// Add this function to play the space background sound
+function playSpaceSound() {
+    if (!soundEnabled || !spaceSoundBuffer) return; // Only play if sound is enabled
+    
+    try {
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        
+        spaceSoundSource = audioContext.createBufferSource();
+        spaceSoundSource.buffer = spaceSoundBuffer;
+        spaceSoundSource.loop = true;
+        spaceSoundSource.connect(audioContext.destination);
+        spaceSoundSource.start(0);
+    } catch (error) {
+        console.error('Error playing space sound:', error);
+    }
+}
+
+// Add this function to enable tool buttons
+function enableToolButtons() {
+    const toolButtons = document.querySelectorAll('.tool-button');
+    toolButtons.forEach(button => {
+        button.style.opacity = '1';
+        button.style.pointerEvents = 'auto';
+    });
+}

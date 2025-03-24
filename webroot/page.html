@@ -6,31 +6,33 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <meta charset="UTF-8" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Web View Example</title>
     <link rel="stylesheet" href="style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   </head>
   <body>
     <pre id="messageOutput"></pre>
+    
+    <!-- Loading container -->
     <div class="loading-container" id="loadingContainer">
-      <h1 class="loading-title">Loading Hyper-Realistic 3D Asteroid</h1>
+      <h1 class="loading-title">Get set MINE !!</h1>
       <div class="loading-bar">
           <div class="loading-progress" id="loadingProgress"></div>
       </div>
       <div class="loading-text" id="loadingText">0%</div>
-  </div>
-  
-  <div class="controls-hint">
-      Left mouse: Rotate | Right mouse: Pan | Scroll: Zoom
-  </div>
-  
-  <div class="model-info">
-      <h2>Asteroid Model</h2>
-      <p>A hyper-realistic 3D asteroid rendered with detailed rocky materials and advanced rendering techniques.</p>
-      <p>Based on NASA data, showing the natural shape and surface details of an asteroid floating in space.</p>
-  </div>
-  
+    </div>
     
+    <!-- Controls hint -->
+    <div id="controlsHint">
+        Click and drag to rotate. Scroll to zoom.<br>
+        Click on the asteroid to use your selected tool.
+    </div>
+    
+    <!-- Load script -->
     <script type="module" src="main.js"></script>
     <script type="application/javascript" src="script.js"></script>
+
   </body>
 </html>
