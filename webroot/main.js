@@ -1247,11 +1247,23 @@ class DustExplosion {
                 audioContext.resume();
             }
             
-            this.fuseSoundSource = audioContext.createBufferSource();
-            this.fuseSoundSource.buffer = fuseSoundBuffer;
-            this.fuseSoundSource.connect(audioContext.destination);
-            this.fuseSoundSource.start(0);
-            this.fuseSoundSource.stop(audioContext.currentTime + 8);
+            // Create a new function to play the fuse sound in a loop
+            const playFuseLoop = () => {
+                this.fuseSoundSource = audioContext.createBufferSource();
+                this.fuseSoundSource.buffer = fuseSoundBuffer;
+                this.fuseSoundSource.connect(audioContext.destination);
+                this.fuseSoundSource.start(0);
+                
+                // When the sound ends, play it again if we're still in the fuse phase
+                this.fuseSoundSource.onended = () => {
+                    if (this.elapsed < this.sparkDuration) {
+                        playFuseLoop();
+                    }
+                };
+            };
+            
+            // Start the initial fuse sound
+            playFuseLoop();
         } catch (error) {
             console.error('Error playing fuse sound:', error);
         }
