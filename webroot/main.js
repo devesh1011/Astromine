@@ -77,7 +77,7 @@ let gameStarted = true; // Set game as started by default
 function createMusicControlButton() {
     const button = document.createElement('button');
     button.className = 'music-control-button';
-    button.innerHTML = `▶️ <span class="button-text">Play Music</span>`; // Initial state
+    button.innerHTML = soundEnabled ? '🔈' : '🔇'; // Speaker icons for on/off states
     button.style.position = 'fixed';
     button.style.bottom = '20px';
     button.style.right = '20px';
@@ -90,17 +90,14 @@ function createMusicControlButton() {
             }
             
             soundEnabled = !soundEnabled;
-            // Update button text and icon based on sound state
-            if (soundEnabled) {
-                button.innerHTML = `⏸️ <span class="button-text">Pause Music</span>`;
-                if (spaceSoundBuffer) {
-                    playSpaceSound();
-                }
-            } else {
-                button.innerHTML = `▶️ <span class="button-text">Play Music</span>`;
-                if (spaceSoundSource) {
-                    spaceSoundSource.stop();
-                }
+            // Update button icon based on sound state
+            button.innerHTML = soundEnabled ? '🔈' : '🔇';
+            
+            // Handle space background sound
+            if (soundEnabled && spaceSoundBuffer) {
+                playSpaceSound();
+            } else if (spaceSoundSource) {
+                spaceSoundSource.stop();
             }
         } catch (error) {
             console.error('Error toggling sound:', error);
@@ -2327,4 +2324,48 @@ function enableToolButtons() {
         button.style.opacity = '1';
         button.style.pointerEvents = 'auto';
     });
+}
+
+// Add this function to handle back to asteroid navigation
+function createBackToAsteroidButton() {
+    const button = document.createElement('button');
+    button.className = 'back-to-asteroid-button';
+    
+    // Add icon and text
+    button.innerHTML = `
+        <span class="icon">🚀</span>
+        <span class="text">Back to Asteroid</span>
+    `;
+    
+    // Add click handler
+    button.addEventListener('click', () => {
+        // Add a click animation
+        button.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+            button.style.transform = 'scale(1)';
+        }, 100);
+        
+        // Redirect to asteroid page
+        window.location.href = 'index.html';
+    });
+    
+    return button;
+}
+
+// Add this function to initialize shop page
+function initShopPage() {
+    // Create and add back to asteroid button
+    const backButton = createBackToAsteroidButton();
+    document.body.appendChild(backButton);
+    
+    // Add shop page specific initialization here
+    // ...
+}
+
+// Check if we're on the shop page and initialize accordingly
+if (window.location.pathname.includes('shop.html')) {
+    initShopPage();
+} else {
+    // Initialize asteroid page
+    init();
 }
