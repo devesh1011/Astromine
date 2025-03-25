@@ -2128,6 +2128,10 @@ function setupInteraction() {
     // Track if we're hovering over the asteroid
     let isHovering = false;
     
+    // Track last click time for double-click detection
+    let lastClickTime = 0;
+    const doubleClickThreshold = 300; // 300ms between clicks
+    
     // Mouse move event for hover detection
     window.addEventListener('mousemove', (event) => {
         // Calculate mouse position in normalized device coordinates
@@ -2154,25 +2158,33 @@ function setupInteraction() {
     // Click event for dust explosion
     window.addEventListener('click', (event) => {
         if (!gameStarted) return;
+
+        const currentTime = Date.now();
         
-        // Calculate mouse position in normalized device coordinates
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-        
-        // Update the picking ray with the camera and mouse position
-        raycaster.setFromCamera(mouse, camera);
-        
-        // Calculate objects intersecting the picking ray
-        const intersects = raycaster.intersectObjects(modelGroup.children, true);
-        
-        if (intersects.length > 0) {
-            // Create a dust explosion at the clicked point
-            const intersectionPoint = intersects[0].point;
+        // Check if this is a double click
+        if (currentTime - lastClickTime < doubleClickThreshold) {
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             
-            // Create and add dust explosion with the current tool
-            const explosion = new DustExplosion(intersectionPoint, scene, currentTool);
-            dustExplosions.push(explosion);
+            // Update the picking ray with the camera and mouse position
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Calculate objects intersecting the picking ray
+            const intersects = raycaster.intersectObjects(modelGroup.children, true);
+            
+            if (intersects.length > 0) {
+                // Create a dust explosion at the clicked point
+                const intersectionPoint = intersects[0].point;
+                
+                // Create and add dust explosion with the current tool
+                const explosion = new DustExplosion(intersectionPoint, scene, currentTool);
+                dustExplosions.push(explosion);
+            }
         }
+        
+        // Update last click time
+        lastClickTime = currentTime;
     });
     
     // Make sure cursor resets when leaving the window
