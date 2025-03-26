@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astromine Shop</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle, #1a1a1a, #000);
+            color: #fff;
+            font-family: 'Press Start 2P', cursive;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .shop-container {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 2rem;
+            border: 4px solid #ff0;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(255, 255, 0, 0.5);
+            max-width: 800px;
+            width: 90%;
+        }
+
+        .shop-title {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            text-shadow: 0 0 10px #ff0;
+            animation: glow 1.5s infinite alternate;
+        }
+
+        .shop-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border: 2px solid #ff0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .shop-item:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 10px rgba(255, 255, 0, 0.8);
+        }
+
+        .item-title {
+            font-size: 1.2rem;
+            color: #ff0;
+        }
+
+        .item-cost {
+            font-size: 1rem;
+            color: #0f0;
+        }
+
+        .item-button {
+            background: linear-gradient(145deg, #ff6b6b, #ff3838);
+            border: 2px solid #ff0;
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            color: white;
+            font-family: 'Press Start 2P', cursive;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .item-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+        }
+
+        .item-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .back-button {
+            margin-top: 2rem;
+            background: linear-gradient(145deg, #4466ff, #2233aa);
+            border: 2px solid #00f;
+            padding: 0.8rem 1.5rem;
+            font-size: 1rem;
+        }
+
+        @keyframes glow {
+            0% {
+                text-shadow: 0 0 10px #ff0;
+            }
+            100% {
+                text-shadow: 0 0 20px #ff0, 0 0 30px #ff0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shop-container">
+        <div class="shop-title">🛒 Astromine Shop 🛒</div>
+        
+        <!-- Shovel Upgrade Section -->
+        <div class="shop-item">
+            <div>
+                <div class="item-title">⛏ Shovel Upgrade</div>
+                <div class="item-cost">Cost: 100 CARBON, 50 IRON</div>
+            </div>
+            <button class="item-button" id="upgradeShovel">Upgrade</button>
+        </div>
+
+        <!-- Dynamite Purchase Section -->
+        <div class="shop-item">
+            <div>
+                <div class="item-title">💣 Buy Dynamite</div>
+                <div class="item-cost">Cost: 50 CARBON, 25 NICKEL</div>
+            </div>
+            <button class="item-button" id="buyDynamite">Buy</button>
+        </div>
+
+        <!-- Back to Game Button -->
+        <button class="item-button back-button" id="backButton">Back to Asteroid</button>
+    </div>
+
+    <script>
+        // Load resources from localStorage
+        const resources = JSON.parse(localStorage.getItem('resources')) || {
+            CARBON: 0,
+            NICKEL: 0,
+            IRON: 0,
+            GOLD: 0,
+            PLATINUM: 0
+        };
+
+        // Load shovel cooldown from localStorage
+        let shovelCooldown = parseInt(localStorage.getItem('shovelCooldown')) || 12000; // 12 seconds
+
+        // Load dynamite count from localStorage
+        let dynamiteCount = parseInt(localStorage.getItem('dynamiteCount')) || 0;
+
+        // Update button states
+        function updateButtons() {
+            const upgradeShovelBtn = document.getElementById('upgradeShovel');
+            const buyDynamiteBtn = document.getElementById('buyDynamite');
+
+            // Check if user can afford shovel upgrade
+            if (resources.CARBON >= 100 && resources.IRON >= 50) {
+                upgradeShovelBtn.disabled = false;
+            } else {
+                upgradeShovelBtn.disabled = true;
+            }
+
+            // Check if user can afford dynamite
+            if (resources.CARBON >= 50 && resources.NICKEL >= 25) {
+                buyDynamiteBtn.disabled = false;
+            } else {
+                buyDynamiteBtn.disabled = true;
+            }
+        }
+
+        // Handle shovel upgrade
+        document.getElementById('upgradeShovel').addEventListener('click', () => {
+            if (resources.CARBON >= 100 && resources.IRON >= 50) {
+                resources.CARBON -= 100;
+                resources.IRON -= 50;
+                shovelCooldown = Math.max(1000, shovelCooldown - 2000); // Reduce cooldown by 2 seconds, minimum 1 second
+                
+                // Save updated values
+                localStorage.setItem('resources', JSON.stringify(resources));
+                localStorage.setItem('shovelCooldown', shovelCooldown);
+                
+                alert('Shovel upgraded! New cooldown: ' + (shovelCooldown / 1000) + ' seconds');
+                updateButtons();
+            }
+        });
+
+        // Handle dynamite purchase
+        document.getElementById('buyDynamite').addEventListener('click', () => {
+            if (resources.CARBON >= 50 && resources.NICKEL >= 25) {
+                resources.CARBON -= 50;
+                resources.NICKEL -= 25;
+                dynamiteCount += 1;
+                
+                // Save updated values
+                localStorage.setItem('resources', JSON.stringify(resources));
+                localStorage.setItem('dynamiteCount', dynamiteCount);
+                
+                alert('Dynamite purchased! Total dynamite: ' + dynamiteCount);
+                updateButtons();
+            }
+        });
+
+        // Handle back button
+        document.getElementById('backButton').addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+
+        // Initial button state update
+        updateButtons();
+    </script>
+</body>
+</html> 
