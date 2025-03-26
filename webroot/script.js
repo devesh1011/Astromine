@@ -1,6 +1,6 @@
 /** @typedef {import('../src/message.ts').DevvitSystemMessage} DevvitSystemMessage */
 /** @typedef {import('../src/message.ts').WebViewMessage} WebViewMessage */
-  
+
 class App {
   constructor() {
     // Get references to the HTML elements
@@ -49,13 +49,13 @@ class App {
         // this.usernameLabel.innerText = username;
         // this.counter = currentCounter;
         // this.counterLabel.innerText = `${this.counter}`;
-        window.asteroidConfig = message.data.asteroidConfig;
-        console.log("script.js console", window.asteroidConfig);
+        // window.asteroidConfig = message.data.asteroidConfig;
+        // console.log("script.js console", window.asteroidConfig);
 
-        // Initialize or update asteroid if main.js is ready
-        if (window.asteroidInitialized) {
-          window.updateAsteroidConfig(window.asteroidConfig);
-        }
+        // // Initialize or update asteroid if main.js is ready
+        // if (window.asteroidInitialized) {
+        //   window.updateAsteroidConfig(window.asteroidConfig);
+        // }
         break;
       }
       case "requestAsteroidConfig":
@@ -71,6 +71,9 @@ class App {
         // this.counterLabel.innerText = `${this.counter}`;
         break;
       }
+      // case "miningResult":
+      //   this.handleMiningResult(message.data);
+      //   break;
       default:
         /** to-do: @satisifes {never} */
         const _ = message;

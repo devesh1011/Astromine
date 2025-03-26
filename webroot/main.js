@@ -41,24 +41,6 @@ scoreCard.innerHTML = `
 document.body.appendChild(scoreCard);
 
 // Add this near the top with other variables
-const resources = {
-  CARBON: 0,
-  NICKEL: 0,
-  IRON: 0,
-  GOLD: 0,
-  PLATINUM: 0,
-};
-
-// Modify the resource ratios and probabilities
-const resourceRatios = {
-  CARBON: 10,
-  NICKEL: 8,
-  IRON: 5,
-  GOLD: 4, // Increased from 2
-  PLATINUM: 0.6, // Increased from 0.3
-};
-
-// Add this near the top with other variables
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 let soundEnabled = false; // Changed from true to false
 let shovelSoundBuffer = null;
@@ -74,7 +56,7 @@ let gameStarted = true; // Set game as started by default
 function createMusicControlButton() {
   const button = document.createElement("button");
   button.className = "music-control-button";
-  button.innerHTML = `▶️ <span class="button-text">Play Music</span>`; // Initial state
+  button.innerHTML = soundEnabled ? "🔈" : "🔇"; // Speaker icons for on/off states
   button.style.position = "fixed";
   button.style.bottom = "20px";
   button.style.right = "20px";
@@ -87,17 +69,14 @@ function createMusicControlButton() {
       }
 
       soundEnabled = !soundEnabled;
-      // Update button text and icon based on sound state
-      if (soundEnabled) {
-        button.innerHTML = `⏸️ <span class="button-text">Pause Music</span>`;
-        if (spaceSoundBuffer) {
-          playSpaceSound();
-        }
-      } else {
-        button.innerHTML = `▶️ <span class="button-text">Play Music</span>`;
-        if (spaceSoundSource) {
-          spaceSoundSource.stop();
-        }
+      // Update button icon based on sound state
+      button.innerHTML = soundEnabled ? "🔈" : "🔇";
+
+      // Handle space background sound
+      if (soundEnabled && spaceSoundBuffer) {
+        playSpaceSound();
+      } else if (spaceSoundSource) {
+        spaceSoundSource.stop();
       }
     } catch (error) {
       console.error("Error toggling sound:", error);
@@ -1369,11 +1348,23 @@ class DustExplosion {
         audioContext.resume();
       }
 
-      this.fuseSoundSource = audioContext.createBufferSource();
-      this.fuseSoundSource.buffer = fuseSoundBuffer;
-      this.fuseSoundSource.connect(audioContext.destination);
-      this.fuseSoundSource.start(0);
-      this.fuseSoundSource.stop(audioContext.currentTime + 8);
+      // Create a new function to play the fuse sound in a loop
+      const playFuseLoop = () => {
+        this.fuseSoundSource = audioContext.createBufferSource();
+        this.fuseSoundSource.buffer = fuseSoundBuffer;
+        this.fuseSoundSource.connect(audioContext.destination);
+        this.fuseSoundSource.start(0);
+
+        // When the sound ends, play it again if we're still in the fuse phase
+        this.fuseSoundSource.onended = () => {
+          if (this.elapsed < this.sparkDuration) {
+            playFuseLoop();
+          }
+        };
+      };
+
+      // Start the initial fuse sound
+      playFuseLoop();
     } catch (error) {
       console.error("Error playing fuse sound:", error);
     }
@@ -2175,19 +2166,6 @@ class DustExplosion {
 
   addResources() {
     const resourceTypes = ["CARBON", "NICKEL", "IRON", "GOLD", "PLATINUM"];
-    const randomResource =
-      resourceTypes[Math.floor(Math.random() * resourceTypes.length)];
-
-    // Calculate the amount based on the ratio
-    const baseAmount = Math.floor(Math.random() * 5) + 1;
-    let amount = Math.round(baseAmount * resourceRatios[randomResource]);
-
-    // Double the amount for dynamite
-    if (this.toolType === "dynamite") {
-      amount *= 2;
-    }
-
-    resources[randomResource] += amount;
 
     // Update the score card
     updateScoreCard();
@@ -2264,6 +2242,10 @@ function setupInteraction() {
   // Track if we're hovering over the asteroid
   let isHovering = false;
 
+  // Track last click time for double-click detection
+  let lastClickTime = 0;
+  const doubleClickThreshold = 300; // 300ms between clicks
+
   // Mouse move event for hover detection
   window.addEventListener("mousemove", (event) => {
     // Calculate mouse position in normalized device coordinates
@@ -2291,30 +2273,43 @@ function setupInteraction() {
   window.addEventListener("click", (event) => {
     if (!gameStarted) return;
 
-    // Calculate mouse position in normalized device coordinates
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    const currentTime = Date.now();
 
-    // Update the picking ray with the camera and mouse position
-    raycaster.setFromCamera(mouse, camera);
+    // Check if this is a double click
+    if (currentTime - lastClickTime < doubleClickThreshold) {
+      // Calculate mouse position
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    // Calculate objects intersecting the picking ray
-    const intersects = raycaster.intersectObjects(modelGroup.children, true);
+      // Update the picking ray
+      raycaster.setFromCamera(mouse, camera);
 
-    if (intersects.length > 0) {
-      // Create a dust explosion at the clicked point
-      const intersectionPoint = intersects[0].point;
+      // Check for asteroid intersection
+      const intersects = raycaster.intersectObjects(modelGroup.children, true);
 
-      // Create and add dust explosion with the current tool
-      const explosion = new DustExplosion(
-        intersectionPoint,
-        scene,
-        currentTool
-      );
-      dustExplosions.push(explosion);
+      if (intersects.length > 0) {
+        const intersectionPoint = intersects[0].point;
+
+        // 1. Send mining event FIRST
+        window.postWebViewMessage({
+          type: "miningStart",
+          data: {
+            tool: currentTool,
+          },
+        });
+
+        // 2. Then create visual effect
+        const explosion = new DustExplosion(
+          intersectionPoint,
+          scene,
+          currentTool
+        );
+        dustExplosions.push(explosion);
+      }
     }
-  });
 
+    lastClickTime = currentTime;
+  });
   // Make sure cursor resets when leaving the window
   window.addEventListener("mouseleave", () => {
     if (isHovering) {
@@ -2324,25 +2319,10 @@ function setupInteraction() {
   });
 }
 
-// window.asteroidInitialized = false;
-// window.updateAsteroidConfig = (config) => {
-//   currentAsteroidConfig = config;
-//   console.log("Config updated:", currentAsteroidConfig);
-// };
-
 // Initialize the scene
 async function init() {
-  currentAsteroidConfig = window.asteroidConfig;
-  console.log(currentAsteroidConfig);
-
-  if (!window.asteroidConfig) {
-    currentAsteroidConfig = getRandomAsteroidConfig();
-
-    window.postWebViewMessage({
-      type: "setAsteroidConfig",
-      data: currentAsteroidConfig,
-    });
-  }
+  // Generate new asteroid configuration each time
+  currentAsteroidConfig = getRandomAsteroidConfig();
 
   setupLighting();
   setupInteraction();
@@ -2355,7 +2335,6 @@ async function init() {
     // Create procedural asteroid directly without waiting for environment map
     console.log("Creating a procedural asteroid");
     const asteroid = createProceduralAsteroid();
-
     loadingProgress.style.width = "70%";
     loadingText.textContent = "Setting up environment...";
 
@@ -2480,4 +2459,48 @@ function enableToolButtons() {
     button.style.opacity = "1";
     button.style.pointerEvents = "auto";
   });
+}
+
+// Add this function to handle back to asteroid navigation
+function createBackToAsteroidButton() {
+  const button = document.createElement("button");
+  button.className = "back-to-asteroid-button";
+
+  // Add icon and text
+  button.innerHTML = `
+        <span class="icon">🚀</span>
+        <span class="text">Back to Asteroid</span>
+    `;
+
+  // Add click handler
+  button.addEventListener("click", () => {
+    // Add a click animation
+    button.style.transform = "scale(0.9)";
+    setTimeout(() => {
+      button.style.transform = "scale(1)";
+    }, 100);
+
+    // Redirect to asteroid page
+    window.location.href = "index.html";
+  });
+
+  return button;
+}
+
+// Add this function to initialize shop page
+function initShopPage() {
+  // Create and add back to asteroid button
+  const backButton = createBackToAsteroidButton();
+  document.body.appendChild(backButton);
+
+  // Add shop page specific initialization here
+  // ...
+}
+
+// Check if we're on the shop page and initialize accordingly
+if (window.location.pathname.includes("shop.html")) {
+  initShopPage();
+} else {
+  // Initialize asteroid page
+  init();
 }
