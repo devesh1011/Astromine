@@ -1,9 +1,19 @@
 import "./createPost.js";
 import { Devvit, useAsync, useWebView, useState } from "@devvit/public-api";
 
-// Define the shape of our message types
+Devvit.configure({
+  redditAPI: true,
+  redis: true,
+});
+
 type WebViewMessage = {
-  type: "webViewReady" | "launchGame" | "updateEquips" | "updateItems";
+  type:
+    | "webViewReady"
+    | "launchGame"
+    | "updateEquips"
+    | "updateItems"
+    | "setAsteroidConfig"
+    | "miningStart";
   data?: any;
 };
 
@@ -12,81 +22,106 @@ type DevvitMessage = {
   data?: any;
 };
 
-Devvit.configure({
-  redditAPI: true,
-  redis: true,
-});
+type MineralType = "iron" | "nickel" | "carbon" | "gold" | "platinum";
+type ToolType = "shovel" | "bomb";
 
 // Create a leaderboard component
 const Leaderboard = ({ onBack }: { onBack: () => void }) => (
-  <vstack 
-    width="100%" 
-    height="100%" 
-    backgroundColor="#0a0a23"
-    padding="medium"
-  >
+  <vstack width="100%" height="100%" backgroundColor="#0a0a23" padding="medium">
     <hstack width="100%" alignment="start" gap="medium">
-      <button
-        appearance="destructive"
-        size="small"
-        onPress={onBack}
-      >
+      <button appearance="destructive" size="small" onPress={onBack}>
         ← RETURN TO BASE
       </button>
-      
+
       <text size="xlarge" weight="bold" color="#ff2a6d" alignment="center">
         🏆 ASTROMINE ALL TIME LEADERBOARD 🏆
       </text>
     </hstack>
-    
+
     <spacer size="medium" />
-    
-    <vstack 
-      width="100%" 
+
+    <vstack
+      width="100%"
       backgroundColor="rgba(5, 5, 20, 0.85)"
       cornerRadius="medium"
       border="thick"
       borderColor="#05d9e8"
     >
-      <hstack 
+      <hstack
         width="100%"
         padding="medium"
         backgroundColor="rgba(5, 217, 232, 0.2)"
       >
-        <text width="20%" color="white" weight="bold">RANK</text>
-        <text width="50%" color="white" weight="bold">MINER</text>
-        <text width="30%" color="white" weight="bold" alignment="end">POINTS</text>
+        <text width="20%" color="white" weight="bold">
+          RANK
+        </text>
+        <text width="50%" color="white" weight="bold">
+          MINER
+        </text>
+        <text width="30%" color="white" weight="bold" alignment="end">
+          POINTS
+        </text>
       </hstack>
-      
+
       <vstack width="100%" padding="medium" gap="medium">
         <hstack width="100%">
-          <text width="20%" color="gold" weight="bold">#1</text>
-          <text width="50%" color="#7efff5">CosmoMiner42</text>
-          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">12,845</text>
+          <text width="20%" color="gold" weight="bold">
+            #1
+          </text>
+          <text width="50%" color="#7efff5">
+            CosmoMiner42
+          </text>
+          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
+            12,845
+          </text>
         </hstack>
-        
+
         <hstack width="100%">
-          <text width="20%" color="silver" weight="bold">#2</text>
-          <text width="50%" color="#7efff5">StarDuster</text>
-          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">10,372</text>
+          <text width="20%" color="silver" weight="bold">
+            #2
+          </text>
+          <text width="50%" color="#7efff5">
+            StarDuster
+          </text>
+          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
+            10,372
+          </text>
         </hstack>
-        
+
         <hstack width="100%">
-          <text width="20%" color="#cd7f32" weight="bold">#3</text>
-          <text width="50%" color="#7efff5">AsteroidHunter</text>
-          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">8,915</text>
+          <text width="20%" color="#cd7f32" weight="bold">
+            #3
+          </text>
+          <text width="50%" color="#7efff5">
+            AsteroidHunter
+          </text>
+          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
+            8,915
+          </text>
         </hstack>
-        
+
         <hstack width="100%">
-          <text width="20%" color="white" weight="bold">#4</text>
-          <text width="50%" color="#7efff5">GalacticMiner</text>
-          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">7,683</text>
+          <text width="20%" color="white" weight="bold">
+            #4
+          </text>
+          <text width="50%" color="#7efff5">
+            GalacticMiner
+          </text>
+          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
+            7,683
+          </text>
         </hstack>
-        
+
         <hstack width="100%">
-          <text width="20%" color="white" weight="bold">#5</text>
-          <text width="50%" color="#7efff5">SpaceExplorer</text>
-          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">6,421</text>
+          <text width="20%" color="white" weight="bold">
+            #5
+          </text>
+          <text width="50%" color="#7efff5">
+            SpaceExplorer
+          </text>
+          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
+            6,421
+          </text>
         </hstack>
       </vstack>
     </vstack>
@@ -99,18 +134,20 @@ Devvit.addCustomPostType({
   render: (context) => {
     const postId = context.postId;
     const [showLeaderboard, setShowLeaderboard] = useState(false);
-    
+
     const [username] = useState(async () => {
-      return (await context.reddit.getCurrentUsername()) ?? 'anon';
+      return (await context.reddit.getCurrentUsername()) ?? "anon";
     });
 
     // Load latest counter from redis with `useAsync` hook
     const { data: playerItems, loading: playerItemsLoading } = useAsync(
-      async () => (await context.redis.hGetAll(`items_${username}_${postId}`)) ?? []
+      async () =>
+        (await context.redis.hGetAll(`items_${username}_${postId}`)) ?? []
     );
 
     const { data: playerEquips, loading: playerEquipsLoading } = useAsync(
-      async () => (await context.redis.hGetAll(`equips_${username}_${postId}`)) ?? []
+      async () =>
+        (await context.redis.hGetAll(`equips_${username}_${postId}`)) ?? []
     );
 
     // Set up the game webview
@@ -118,50 +155,72 @@ Devvit.addCustomPostType({
       url: "page.html",
       async onMessage(message, webView) {
         switch (message.type) {
-          case 'webViewReady':
-            if(!playerEquipsLoading && !playerItemsLoading){
-              webView.postMessage({
-                type: 'initialData',
-                data: {
-                  username: username,
-                  playerItems: playerItems,
-                  playerEquips: playerEquips
-                },
-              });
-            }
+          case "webViewReady":
+            const existingConfig = await context.redis.get(
+              `asteroid_config:${postId}`
+            );
+            console.log("Asteroid config retrieved from redis", existingConfig);
+
+            webView.postMessage({
+              type: "initialData",
+              data: {
+                username: username,
+                playerItems: playerItems,
+                playerEquips: playerEquips,
+                asteroidConfig: existingConfig
+                  ? JSON.parse(existingConfig)
+                  : null,
+              },
+            });
             break;
-          case 'updateEquips':
-            if(message.data.updateType=="increase"){
+
+          case "miningStart":
+            // const miningResult = await startMining(
+            //   context,
+            //   context.postId ?? "defaultPostId",
+            //   message.data.username,
+            //   message.data.tool
+            // );
+
+          case "setAsteroidConfig":
+            const config = message.data;
+            console.log("Storing asteroid config:", config);
+
+            await context.redis.set(
+              `asteroid_config:${postId}`,
+              JSON.stringify(config)
+            );
+            await context.redis.expire(`asteroid_config:${postId}`, 14400);
+            break;
+
+          case "updateEquips":
+            if (message.data.updateType == "increase") {
               await context.redis.hIncrBy(
-                `items_${username}_${postId}`, 
-                message.data.equipName, 
+                `items_${username}_${postId}`,
+                message.data.equipName,
                 parseInt(message.data.equipValue)
               );
-            }
-
-            else if(message.data.updateType=="decrease"){
+            } else if (message.data.updateType == "decrease") {
               await context.redis.hIncrBy(
-                `items_${username}_${postId}`, 
-                message.data.equipName, 
+                `items_${username}_${postId}`,
+                message.data.equipName,
                 -parseInt(message.data.equipValue)
               );
             }
             console.log(`Updated equip values`);
             break;
 
-          case 'updateItems':
-            if(message.data.updateType=="increase"){
+          case "updateItems":
+            if (message.data.updateType == "increase") {
               await context.redis.hIncrBy(
-                `items_${username}_${postId}`, 
-                message.data.itemName, 
+                `items_${username}_${postId}`,
+                message.data.itemName,
                 parseInt(message.data.itemValue)
               );
-            }
-
-            else if(message.data.updateType=="decrease"){
+            } else if (message.data.updateType == "decrease") {
               await context.redis.hIncrBy(
-                `items_${username}_${postId}`, 
-                message.data.itemName, 
+                `items_${username}_${postId}`,
+                message.data.itemName,
                 -parseInt(message.data.itemValue)
               );
             }
@@ -175,36 +234,40 @@ Devvit.addCustomPostType({
         // Removed the toast notification
       },
     });
-    
+
     // If leaderboard is showing, render the leaderboard component
     if (showLeaderboard) {
       return <Leaderboard onBack={() => setShowLeaderboard(false)} />;
     }
-    
+
     // Otherwise show the main menu
     return (
-      <zstack
-        width="100%"
-        height={350}
-      >
+      <zstack width="100%" height={350}>
         <image
           url={context.assets.getURL("check.jpeg")}
           imageWidth={700}
           imageHeight={500}
           resizeMode="cover"
         />
-        
-        <zstack width="100%" height="100%" alignment="top center" padding="large">
-          <vstack 
+
+        <zstack
+          width="100%"
+          height="100%"
+          alignment="top center"
+          padding="large"
+        >
+          <vstack
             width="60%"
             height="20%"
-            backgroundColor="rgba(0, 0, 0, 0.7)" 
+            backgroundColor="rgba(0, 0, 0, 0.7)"
             cornerRadius="medium"
             alignment="middle center"
             gap="medium"
           >
-            <text size="xlarge" weight="bold" color="white">ASTROMINE</text>
-            
+            <text size="xlarge" weight="bold" color="white">
+              ASTROMINE
+            </text>
+
             <button
               onPress={() => {
                 gameWebView.mount();
@@ -215,7 +278,7 @@ Devvit.addCustomPostType({
             >
               🚀 LAUNCH GAME
             </button>
-            
+
             <button
               onPress={() => {
                 setShowLeaderboard(true);
