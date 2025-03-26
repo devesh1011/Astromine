@@ -18,12 +18,154 @@ type WebViewMessage = {
 };
 
 type DevvitMessage = {
-  type: "initialData" | "updateCounter" | "webViewReady";
+  type: "initialData" | "updateCounter" | "webViewReady" | "miningResult";
   data?: any;
 };
 
 type MineralType = "iron" | "nickel" | "carbon" | "gold" | "platinum";
 type ToolType = "shovel" | "bomb";
+
+interface MiningResult {
+  mined: Record<MineralType, number>;
+  remainingCapacity: number;
+  inventory: Record<string, number>;
+}
+
+interface ToolStats {
+  yield: number;
+  rareChance: number;
+  cooldown: number;
+}
+
+const TOOL_STATS = {
+  shovel: {
+    yield: 10,
+    rareChance: 0.05, // 5% chance for rare minerals
+    cooldown: 3000, // 3 seconds
+  },
+  bomb: {
+    yield: 50,
+    rareChance: 0.15, // 15% chance for rare minerals
+    cooldown: 5000, // 5 seconds
+  },
+};
+
+function calculateYield(
+  yieldAmount: number, // From effectiveYield
+  toolStats: ToolStats, // { yield: number, rareChance: number }
+  composition: Record<MineralType, number> // Asteroid's mineral ratios
+): Record<MineralType, number> {
+  const result = { iron: 0, nickel: 0, carbon: 0, gold: 0, platinum: 0 };
+
+  for (let i = 0; i < yieldAmount; i++) {
+    const roll = Math.random();
+
+    // Rare minerals check (gold/platinum)
+    if (roll < toolStats.rareChance) {
+      const rareMineral = roll < toolStats.rareChance / 2 ? "gold" : "platinum";
+      result[rareMineral]++;
+    }
+    // Common minerals (iron/nickel/carbon)
+    else {
+      const commonRoll = Math.random();
+      if (commonRoll < composition.iron) result.iron++;
+      else if (commonRoll < composition.iron + composition.nickel)
+        result.nickel++;
+      else result.carbon++;
+    }
+  }
+  return result;
+}
+
+async function startMining(
+  context: Devvit.Context,
+  postId: string,
+  username: string,
+  tool: ToolType
+): Promise<MiningResult> {
+  const { redis } = context;
+  const toolStats = TOOL_STATS[tool];
+
+  const asteroidKey = `asteroid_config:${postId}`;
+  // const userCooldownKey = `cooldown:${username}:${postId}`;
+  const inventoryKey = `inventory:${username}:${postId}`;
+
+  // const cooldownRemaining = await redis.get(userCooldownKey);
+  // if (cooldownRemaining) {
+  //   throw new Error(`Please wait ${Math.ceil(parseInt(cooldownRemaining)/1000} seconds before mining again`);
+  // }
+
+  const asteroidData = await redis.get(asteroidKey);
+  if (!asteroidData) {
+    throw new Error("Asteroid has been depleted");
+  }
+  const dummyAsteroid = {
+    capacity: 10000, // Total capacity in kg
+    remaining: 8500, // Current remaining amount
+    composition: {
+      iron: 0.4, // 40%
+      nickel: 0.3, // 30%
+      carbon: 0.2, // 20%
+      gold: 0.05, // 5%
+      platinum: 0.05, // 5%
+    },
+  };
+
+  const asteroid = asteroidData ? JSON.parse(asteroidData) : dummyAsteroid; // Fallback only
+
+  if (asteroid.remaining <= 0) {
+    const currentInventory = await redis.hGetAll(inventoryKey);
+    return {
+      mined: { iron: 0, nickel: 0, carbon: 0, gold: 0, platinum: 0 },
+      remainingCapacity: 0,
+      inventory: Object.fromEntries(
+        Object.entries(currentInventory || {}).map(([key, value]) => [
+          key,
+          parseFloat(value),
+        ])
+      ),
+    };
+  }
+
+  const effectiveYield = Math.min(toolStats.yield, asteroid.remaining);
+  const minedMinerals = calculateYield(
+    effectiveYield,
+    toolStats,
+    asteroid.composition
+  );
+
+  await redis.set(
+    asteroidKey,
+    JSON.stringify({
+      ...asteroid,
+      remaining: asteroid.remaining - effectiveYield,
+    })
+  );
+
+  await Promise.all([
+    redis.hIncrBy(inventoryKey, "iron", minedMinerals.iron),
+    redis.hIncrBy(inventoryKey, "nickel", minedMinerals.nickel),
+    redis.hIncrBy(inventoryKey, "carbon", minedMinerals.carbon),
+    redis.hIncrBy(inventoryKey, "gold", minedMinerals.gold),
+    redis.hIncrBy(inventoryKey, "platinum", minedMinerals.platinum),
+  ]);
+
+  // await redis.set(userCooldownKey, "1", {
+  //   expiry: { milliseconds: toolStats.cooldown },
+  // });
+  const updatedInventory = await redis.hGetAll(inventoryKey);
+
+  const numericInventory: Record<string, number> = {};
+  for (const [key, value] of Object.entries(updatedInventory || {})) {
+    numericInventory[key] = parseInt(value, 10) || 0; // Fallback to 0 if NaN
+  }
+
+  return {
+    mined: minedMinerals,
+    remainingCapacity: asteroid.remaining - effectiveYield,
+    inventory: numericInventory || {},
+  };
+}
 
 // Create a leaderboard component
 const Leaderboard = ({ onBack }: { onBack: () => void }) => (
@@ -167,65 +309,72 @@ Devvit.addCustomPostType({
                 username: username,
                 playerItems: playerItems,
                 playerEquips: playerEquips,
-                asteroidConfig: existingConfig
-                  ? JSON.parse(existingConfig)
-                  : null,
               },
             });
             break;
 
           case "miningStart":
-            // const miningResult = await startMining(
-            //   context,
-            //   context.postId ?? "defaultPostId",
-            //   message.data.username,
-            //   message.data.tool
-            // );
+            const user = (await context.reddit.getCurrentUsername()) ?? "anon";
 
-          case "setAsteroidConfig":
-            const config = message.data;
-            console.log("Storing asteroid config:", config);
-
-            await context.redis.set(
-              `asteroid_config:${postId}`,
-              JSON.stringify(config)
+            const miningResult = await startMining(
+              context,
+              context.postId ?? "defaultPostId",
+              user,
+              message.data.tool
             );
-            await context.redis.expire(`asteroid_config:${postId}`, 14400);
+            webView.postMessage({ type: "miningResult", data: miningResult }); // Add this
+            console.log(miningResult);
             break;
 
-          case "updateEquips":
-            if (message.data.updateType == "increase") {
-              await context.redis.hIncrBy(
-                `items_${username}_${postId}`,
-                message.data.equipName,
-                parseInt(message.data.equipValue)
-              );
-            } else if (message.data.updateType == "decrease") {
-              await context.redis.hIncrBy(
-                `items_${username}_${postId}`,
-                message.data.equipName,
-                -parseInt(message.data.equipValue)
-              );
-            }
-            console.log(`Updated equip values`);
-            break;
+          // case "setAsteroidConfig":
+          //   // Should ONLY receive initial asteroid generation data
+          //   const asteroidConfig = message.data;
+          //   console.log("Storing NEW asteroid config:", asteroidConfig);
 
-          case "updateItems":
-            if (message.data.updateType == "increase") {
-              await context.redis.hIncrBy(
-                `items_${username}_${postId}`,
-                message.data.itemName,
-                parseInt(message.data.itemValue)
-              );
-            } else if (message.data.updateType == "decrease") {
-              await context.redis.hIncrBy(
-                `items_${username}_${postId}`,
-                message.data.itemName,
-                -parseInt(message.data.itemValue)
-              );
-            }
-            console.log(`Updated item values`);
-            break;
+          //   await context.redis.set(
+          //     `asteroid_config:${postId}`,
+          //     JSON.stringify({
+          //       capacity: asteroidConfig.capacity,
+          //       remaining: asteroidConfig.capacity,
+          //       composition: asteroidConfig.composition,
+          //     })
+          //   );
+          //   await context.redis.expire(`asteroid_config:${postId}`, 14400);
+          //   break;
+
+          // case "updateEquips":
+          //   if (message.data.updateType == "increase") {
+          //     await context.redis.hIncrBy(
+          //       `items_${username}_${postId}`,
+          //       message.data.equipName,
+          //       parseInt(message.data.equipValue)
+          //     );
+          //   } else if (message.data.updateType == "decrease") {
+          //     await context.redis.hIncrBy(
+          //       `items_${username}_${postId}`,
+          //       message.data.equipName,
+          //       -parseInt(message.data.equipValue)
+          //     );
+          //   }
+          //   console.log(`Updated equip values`);
+          //   break;
+
+          // case "updateItems":
+          //   if (message.data.updateType == "increase") {
+          //     await context.redis.hIncrBy(
+          //       `items_${username}_${postId}`,
+          //       message.data.itemName,
+          //       parseInt(message.data.itemValue)
+          //     );
+          //   } else if (message.data.updateType == "decrease") {
+          //     await context.redis.hIncrBy(
+          //       `items_${username}_${postId}`,
+          //       message.data.itemName,
+          //       -parseInt(message.data.itemValue)
+          //     );
+          //   }
+          //   console.log(`Updated item values`);
+          //   break;
           default:
             console.log(`Unknown message type: ${message.type}`);
         }
