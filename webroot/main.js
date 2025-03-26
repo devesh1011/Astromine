@@ -73,6 +73,28 @@ let spaceSoundSource = null;
 // Add this near the top with other variables
 let gameStarted = true; // Set game as started by default
 
+// Add this near the top with other variables
+const itemCounts = {
+  shovel: 3,
+  dynamite: 3
+};
+
+// Add this function to create item count displays
+function createItemCountDisplays() {
+  const toolSelector = document.querySelector('.tool-selector');
+  
+  // Add count display to each tool button
+  const buttons = toolSelector.querySelectorAll('.tool-button');
+  buttons.forEach(button => {
+    const tool = button.dataset.tool;
+    const countDisplay = document.createElement('div');
+    countDisplay.className = 'item-count';
+    countDisplay.id = `${tool}Count`;
+    countDisplay.textContent = itemCounts[tool];
+    button.appendChild(countDisplay);
+  });
+}
+
 // Function to create the music control button
 function createMusicControlButton() {
     const button = document.createElement('button');
@@ -1185,6 +1207,13 @@ let dustExplosions = [];
 // Class to handle dust explosion effect
 class DustExplosion {
     constructor(position, scene, toolType = 'shovel', count = 250) {
+        // Check if we have items left
+        if (itemCounts[toolType] <= 0) return;
+        
+        // Decrease item count
+        itemCounts[toolType]--;
+        updateItemCount(toolType);
+        
         this.position = position;
         this.scene = scene;
         this.toolSettings = TOOL_SETTINGS[toolType];
@@ -2144,6 +2173,9 @@ function setupInteraction() {
     let lastClickTime = 0;
     const doubleClickThreshold = 300; // 300ms between clicks
     
+    // Track if we're processing a click
+    let isProcessingClick = false;
+
     // Mouse move event for hover detection
     window.addEventListener('mousemove', (event) => {
         // Calculate mouse position in normalized device coordinates
@@ -2169,12 +2201,14 @@ function setupInteraction() {
     
     // Click event for dust explosion
     window.addEventListener('click', (event) => {
-        if (!gameStarted) return;
+        if (!gameStarted || isProcessingClick) return;
 
         const currentTime = Date.now();
         
         // Check if this is a double click
         if (currentTime - lastClickTime < doubleClickThreshold) {
+            isProcessingClick = true; // Prevent multiple triggers
+            
             // Calculate mouse position in normalized device coordinates
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -2193,6 +2227,11 @@ function setupInteraction() {
                 const explosion = new DustExplosion(intersectionPoint, scene, currentTool);
                 dustExplosions.push(explosion);
             }
+
+            // Reset processing flag after a short delay
+            setTimeout(() => {
+                isProcessingClick = false;
+            }, 500); // 500ms cooldown
         }
         
         // Update last click time
@@ -2393,3 +2432,17 @@ if (window.location.pathname.includes('shop.html')) {
     // Initialize asteroid page
     init();
 }
+
+// Add this function to update item counts
+function updateItemCount(toolType) {
+  const countDisplay = document.getElementById(`${toolType}Count`);
+  if (countDisplay) {
+    countDisplay.textContent = itemCounts[toolType];
+    // Add animation class
+    countDisplay.classList.add('count-update');
+    setTimeout(() => countDisplay.classList.remove('count-update'), 200);
+  }
+}
+
+// Call this function after creating tool buttons
+createItemCountDisplays();

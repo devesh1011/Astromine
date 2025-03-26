@@ -312,215 +312,268 @@ canvas {
 }
 
 .tool-button {
-    position: relative;
-    overflow: hidden;
-    border: 2px solid #ff0;
-    background: linear-gradient(145deg, #333, #000);
-    box-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
-    transition: all 0.3s ease;
-    animation: button-glow 2s infinite alternate;
+  position: relative;
+  overflow: visible;
+  border: 2px solid #ff0;
+  background: linear-gradient(145deg, #333, #000);
+  box-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
+  transition: all 0.3s ease;
+  animation: button-glow 2s infinite alternate;
 }
 
 @keyframes button-glow {
-    0% {
-        box-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
-        border-color: #ff0;
-    }
-    100% {
-        box-shadow: 0 0 20px rgba(255, 255, 0, 0.8);
-        border-color: #ff8;
-    }
+  0% {
+    box-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
+    border-color: #ff0;
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(255, 255, 0, 0.8);
+    border-color: #ff8;
+  }
 }
 
 .tool-button::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 300%;
-    height: 300%;
-    background: radial-gradient(circle, rgba(255,255,0,0.3), transparent 70%);
-    transform: translate(-50%, -50%) scale(0);
-    transition: transform 0.5s ease;
-    pointer-events: none;
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300%;
+  height: 300%;
+  background: radial-gradient(circle, rgba(255,255,0,0.3), transparent 70%);
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.5s ease;
+  pointer-events: none;
 }
 
 .tool-button:hover::before {
-    transform: translate(-50%, -50%) scale(1);
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .tool-button.active {
-    background: linear-gradient(145deg, #4466ff, #2233aa);
-    animation: active-glow 0.5s infinite alternate;
+  background: linear-gradient(145deg, #4466ff, #2233aa);
+  animation: active-glow 0.5s infinite alternate;
 }
 
 @keyframes active-glow {
-    0% {
-        box-shadow: 0 0 10px rgba(68, 102, 255, 0.5);
-    }
-    100% {
-        box-shadow: 0 0 20px rgba(68, 102, 255, 0.8);
-    }
+  0% {
+    box-shadow: 0 0 10px rgba(68, 102, 255, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(68, 102, 255, 0.8);
+  }
 }
 
 .tool-button .icon {
-    animation: icon-bounce 1s infinite alternate;
+  animation: icon-bounce 1s infinite alternate;
 }
 
 @keyframes icon-bounce {
-    0% {
-        transform: translateY(0);
-    }
-    100% {
-        transform: translateY(-3px);
-    }
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-3px);
+  }
 }
 
 .tool-button .label {
-    position: relative;
-    color: #ff0;
-    text-shadow: 0 0 5px #ff0;
-    animation: text-flicker 1.5s infinite alternate;
+  position: relative;
+  color: #ff0;
+  text-shadow: 0 0 5px #ff0;
+  animation: text-flicker 1.5s infinite alternate;
 }
 
 @keyframes text-flicker {
-    0% {
-        opacity: 0.8;
-        text-shadow: 0 0 5px #ff0;
-    }
-    100% {
-        opacity: 1;
-        text-shadow: 0 0 10px #ff0, 0 0 20px #ff0;
-    }
+  0% {
+    opacity: 0.8;
+    text-shadow: 0 0 5px #ff0;
+  }
+  100% {
+    opacity: 1;
+    text-shadow: 0 0 10px #ff0, 0 0 20px #ff0;
+  }
 }
 
 .shop-button {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 10px 20px;
-    background: linear-gradient(145deg, #ff6b6b, #ff3838);
-    border: 2px solid #ff0;
-    border-radius: 5px;
-    color: white;
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    text-transform: uppercase;
-    cursor: pointer;
-    z-index: 10;
-    box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-    animation: shop-glow 1.5s infinite alternate;
-    transition: all 0.3s ease;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 10px 20px;
+  background: linear-gradient(145deg, #ff6b6b, #ff3838);
+  border: 2px solid #ff0;
+  border-radius: 5px;
+  color: white;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  animation: shop-glow 1.5s infinite alternate;
+  transition: all 0.3s ease;
 }
 
 @keyframes shop-glow {
-    0% {
-        box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-        border-color: #ff0;
-    }
-    100% {
-        box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
-        border-color: #ff8;
-    }
+  0% {
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    border-color: #ff0;
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+    border-color: #ff8;
+  }
 }
 
 .shop-button:hover {
-    transform: scale(1.1);
-    background: linear-gradient(145deg, #ff3838, #ff6b6b);
-    animation: shop-pulse 0.5s infinite alternate;
+  transform: scale(1.1);
+  background: linear-gradient(145deg, #ff3838, #ff6b6b);
+  animation: shop-pulse 0.5s infinite alternate;
 }
 
 @keyframes shop-pulse {
-    0% {
-        transform: scale(1.1);
-    }
-    100% {
-        transform: scale(1.15);
-    }
+  0% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1.15);
+  }
 }
 
 .shop-button:active {
-    transform: scale(0.95);
-    box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+  transform: scale(0.95);
+  box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
 }
 
 .shop-button .icon {
-    margin-right: 8px;
-    animation: icon-bounce 1s infinite alternate;
+  margin-right: 8px;
+  animation: icon-bounce 1s infinite alternate;
 }
 
 .music-control-button {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    background: #4466ff;
-    border: 2px solid #ff0;
-    border-radius: 50%;
-    color: white;
-    font-size: 1.5rem;
-    cursor: pointer;
-    z-index: 100;
-    box-shadow: 0 0 10px rgba(0, 0, 255, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: #4466ff;
+  border: 2px solid #ff0;
+  border-radius: 50%;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 100;
+  box-shadow: 0 0 10px rgba(0, 0, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
 }
 
 .music-control-button:hover {
-    transform: scale(1.1);
-    background: #5577ff;
-    box-shadow: 0 0 15px rgba(0, 0, 255, 0.8);
+  transform: scale(1.1);
+  background: #5577ff;
+  box-shadow: 0 0 15px rgba(0, 0, 255, 0.8);
 }
 
 .music-control-button:active {
-    transform: scale(0.95);
-    box-shadow: 0 0 5px rgba(0, 0, 255, 0.5);
+  transform: scale(0.95);
+  box-shadow: 0 0 5px rgba(0, 0, 255, 0.5);
 }
 
 .music-control-button .button-text {
-    display: none;
+  display: none;
 }
 
 .back-to-asteroid-button {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    padding: 12px 24px;
-    background: linear-gradient(145deg, #4466ff, #2233aa);
-    border: 2px solid #ff0;
-    border-radius: 50px;
-    color: white;
-    font-size: 1rem;
-    cursor: pointer;
-    z-index: 100;
-    box-shadow: 0 0 10px rgba(0, 0, 255, 0.5);
-    transition: all 0.3s ease;
-    font-family: 'Press Start 2P', cursive;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    text-shadow: 0 0 5px rgba(0, 0, 255, 0.8);
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  padding: 12px 24px;
+  background: linear-gradient(145deg, #4466ff, #2233aa);
+  border: 2px solid #ff0;
+  border-radius: 50px;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  z-index: 100;
+  box-shadow: 0 0 10px rgba(0, 0, 255, 0.5);
+  transition: all 0.3s ease;
+  font-family: 'Press Start 2P', cursive;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 0 5px rgba(0, 0, 255, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .back-to-asteroid-button:hover {
-    transform: scale(1.05);
-    background: linear-gradient(145deg, #2233aa, #4466ff);
+  transform: scale(1.05);
+  background: linear-gradient(145deg, #2233aa, #4466ff);
 }
 
 .back-to-asteroid-button:active {
-    transform: scale(0.95);
+  transform: scale(0.95);
 }
 
 .back-to-asteroid-button .icon {
-    font-size: 1.2rem;
+  font-size: 1.2rem;
 }
 
 .back-to-asteroid-button .text {
-    font-size: 0.8rem;
+  font-size: 0.8rem;
+}
+
+.item-count {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  background-color: rgba(255, 68, 68, 0.9);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  border: 2px solid #ff0;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  animation: count-glow 1s infinite alternate;
+  z-index: 1;
+  pointer-events: none;
+}
+
+@keyframes count-glow {
+  0% {
+    box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.count-update {
+  animation: count-bounce 0.3s ease-out;
+}
+
+@keyframes count-bounce {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
