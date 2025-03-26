@@ -72,7 +72,6 @@ let gameStarted = true; // Set game as started by default
 
 // Function to create the music control button
 function createMusicControlButton() {
-<<<<<<< HEAD
   const button = document.createElement("button");
   button.className = "music-control-button";
   button.innerHTML = `▶️ <span class="button-text">Play Music</span>`; // Initial state
@@ -93,34 +92,6 @@ function createMusicControlButton() {
         button.innerHTML = `⏸️ <span class="button-text">Pause Music</span>`;
         if (spaceSoundBuffer) {
           playSpaceSound();
-=======
-    const button = document.createElement('button');
-    button.className = 'music-control-button';
-    button.innerHTML = soundEnabled ? '🔈' : '🔇'; // Speaker icons for on/off states
-    button.style.position = 'fixed';
-    button.style.bottom = '20px';
-    button.style.right = '20px';
-    button.style.zIndex = '100';
-    
-    button.addEventListener('click', async () => {
-        try {
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
-            
-            soundEnabled = !soundEnabled;
-            // Update button icon based on sound state
-            button.innerHTML = soundEnabled ? '🔈' : '🔇';
-            
-            // Handle space background sound
-            if (soundEnabled && spaceSoundBuffer) {
-                playSpaceSound();
-            } else if (spaceSoundSource) {
-                spaceSoundSource.stop();
-            }
-        } catch (error) {
-            console.error('Error toggling sound:', error);
->>>>>>> main
         }
       } else {
         button.innerHTML = `▶️ <span class="button-text">Play Music</span>`;
@@ -1356,39 +1327,8 @@ class DustExplosion {
       autoRotate = false;
     }
 
-<<<<<<< HEAD
     // Create spark particles first
     this.createSparkParticles();
-=======
-    playFuseSound() {
-        if (!soundEnabled) return; // Only play if sound is enabled
-        try {
-            if (audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
-            
-            // Create a new function to play the fuse sound in a loop
-            const playFuseLoop = () => {
-                this.fuseSoundSource = audioContext.createBufferSource();
-                this.fuseSoundSource.buffer = fuseSoundBuffer;
-                this.fuseSoundSource.connect(audioContext.destination);
-                this.fuseSoundSource.start(0);
-                
-                // When the sound ends, play it again if we're still in the fuse phase
-                this.fuseSoundSource.onended = () => {
-                    if (this.elapsed < this.sparkDuration) {
-                        playFuseLoop();
-                    }
-                };
-            };
-            
-            // Start the initial fuse sound
-            playFuseLoop();
-        } catch (error) {
-            console.error('Error playing fuse sound:', error);
-        }
-    }
->>>>>>> main
 
     // Add sound handling
     this.shovelSound = null;
@@ -2319,7 +2259,6 @@ function setupInteraction() {
             cursor: crosshair;
         }
     `;
-<<<<<<< HEAD
   document.head.appendChild(style);
 
   // Track if we're hovering over the asteroid
@@ -2383,79 +2322,6 @@ function setupInteraction() {
       isHovering = false;
     }
   });
-=======
-    document.head.appendChild(style);
-    
-    // Track if we're hovering over the asteroid
-    let isHovering = false;
-    
-    // Track last click time for double-click detection
-    let lastClickTime = 0;
-    const doubleClickThreshold = 300; // 300ms between clicks
-    
-    // Mouse move event for hover detection
-    window.addEventListener('mousemove', (event) => {
-        // Calculate mouse position in normalized device coordinates
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-        
-        // Update the picking ray with the camera and mouse position
-        raycaster.setFromCamera(mouse, camera);
-        
-        // Calculate objects intersecting the picking ray
-        const intersects = raycaster.intersectObjects(modelGroup.children, true);
-        
-        if (intersects.length > 0 && !isHovering) {
-            // Mouse is over the asteroid - change to tool cursor
-            document.body.classList.add('shovel-cursor');
-            isHovering = true;
-        } else if (intersects.length === 0 && isHovering) {
-            // Mouse is no longer over the asteroid - change back to default cursor
-            document.body.classList.remove('shovel-cursor');
-            isHovering = false;
-        }
-    });
-    
-    // Click event for dust explosion
-    window.addEventListener('click', (event) => {
-        if (!gameStarted) return;
-
-        const currentTime = Date.now();
-        
-        // Check if this is a double click
-        if (currentTime - lastClickTime < doubleClickThreshold) {
-            // Calculate mouse position in normalized device coordinates
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            
-            // Update the picking ray with the camera and mouse position
-            raycaster.setFromCamera(mouse, camera);
-            
-            // Calculate objects intersecting the picking ray
-            const intersects = raycaster.intersectObjects(modelGroup.children, true);
-            
-            if (intersects.length > 0) {
-                // Create a dust explosion at the clicked point
-                const intersectionPoint = intersects[0].point;
-                
-                // Create and add dust explosion with the current tool
-                const explosion = new DustExplosion(intersectionPoint, scene, currentTool);
-                dustExplosions.push(explosion);
-            }
-        }
-        
-        // Update last click time
-        lastClickTime = currentTime;
-    });
-    
-    // Make sure cursor resets when leaving the window
-    window.addEventListener('mouseleave', () => {
-        if (isHovering) {
-            document.body.classList.remove('shovel-cursor');
-            isHovering = false;
-        }
-    });
->>>>>>> main
 }
 
 // window.asteroidInitialized = false;
@@ -2609,62 +2475,9 @@ function playSpaceSound() {
 
 // Add this function to enable tool buttons
 function enableToolButtons() {
-<<<<<<< HEAD
   const toolButtons = document.querySelectorAll(".tool-button");
   toolButtons.forEach((button) => {
     button.style.opacity = "1";
     button.style.pointerEvents = "auto";
   });
 }
-=======
-    const toolButtons = document.querySelectorAll('.tool-button');
-    toolButtons.forEach(button => {
-        button.style.opacity = '1';
-        button.style.pointerEvents = 'auto';
-    });
-}
-
-// Add this function to handle back to asteroid navigation
-function createBackToAsteroidButton() {
-    const button = document.createElement('button');
-    button.className = 'back-to-asteroid-button';
-    
-    // Add icon and text
-    button.innerHTML = `
-        <span class="icon">🚀</span>
-        <span class="text">Back to Asteroid</span>
-    `;
-    
-    // Add click handler
-    button.addEventListener('click', () => {
-        // Add a click animation
-        button.style.transform = 'scale(0.9)';
-        setTimeout(() => {
-            button.style.transform = 'scale(1)';
-        }, 100);
-        
-        // Redirect to asteroid page
-        window.location.href = 'index.html';
-    });
-    
-    return button;
-}
-
-// Add this function to initialize shop page
-function initShopPage() {
-    // Create and add back to asteroid button
-    const backButton = createBackToAsteroidButton();
-    document.body.appendChild(backButton);
-    
-    // Add shop page specific initialization here
-    // ...
-}
-
-// Check if we're on the shop page and initialize accordingly
-if (window.location.pathname.includes('shop.html')) {
-    initShopPage();
-} else {
-    // Initialize asteroid page
-    init();
-}
->>>>>>> main
