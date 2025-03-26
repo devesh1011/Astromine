@@ -1,26 +1,33 @@
 /** @typedef {import('../src/message.ts').DevvitSystemMessage} DevvitSystemMessage */
 /** @typedef {import('../src/message.ts').WebViewMessage} WebViewMessage */
-
+  
 class App {
   constructor() {
     // Get references to the HTML elements
-    this.output = /** @type {HTMLPreElement} */ (document.querySelector('#messageOutput'));
-    this.usernameLabel = /** @type {HTMLSpanElement} */ (document.querySelector('#username'));
-    this.counterLabel = /** @type {HTMLSpanElement} */ (document.querySelector('#counter'));
+    this.output = /** @type {HTMLPreElement} */ (
+      document.querySelector("#messageOutput")
+    );
+    this.usernameLabel = /** @type {HTMLSpanElement} */ (
+      document.querySelector("#username")
+    );
+    this.counterLabel = /** @type {HTMLSpanElement} */ (
+      document.querySelector("#counter")
+    );
     this.counter = 0;
 
     // When the Devvit app sends a message with `postMessage()`, this will be triggered
-    addEventListener('message', this.#onMessage);
+    addEventListener("message", this.#onMessage);
 
     // This event gets called when the web view is loaded
-    addEventListener('load', () => {
-      postWebViewMessage({ type: 'webViewReady' });
+    addEventListener("load", async () => {
+      postWebViewMessage({ type: "webViewReady" });
 
       if (window.initAsteroid) {
-        window.initAsteroid().catch(err => console.error("Failed to initialize asteroid:", err));
+        window
+          .initAsteroid()
+          .catch((err) => console.error("Failed to initialize asteroid:", err));
       }
     });
-
   }
 
   /**
@@ -29,22 +36,36 @@ class App {
    */
   #onMessage = (ev) => {
     // Reserved type for messages sent via `context.ui.webView.postMessage`
-    if (ev.data.type !== 'devvit-message') return;
+    if (ev.data.type !== "devvit-message") return;
     const { message } = ev.data.data;
 
     // Always output full message
     this.output.replaceChildren(JSON.stringify(message, undefined, 2));
 
     switch (message.type) {
-      case 'initialData': {
+      case "initialData": {
         // Load initial data
         const { username, currentCounter } = message.data;
         // this.usernameLabel.innerText = username;
         // this.counter = currentCounter;
         // this.counterLabel.innerText = `${this.counter}`;
+        window.asteroidConfig = message.data.asteroidConfig;
+        console.log("script.js console", window.asteroidConfig);
+
+        // Initialize or update asteroid if main.js is ready
+        if (window.asteroidInitialized) {
+          window.updateAsteroidConfig(window.asteroidConfig);
+        }
         break;
       }
-      case 'updateCounter': {
+      case "requestAsteroidConfig":
+        // You could respond with the current config
+        postWebViewMessage({
+          type: "asteroidConfig",
+          data: window.currentAsteroidConfig,
+        });
+        break;
+      case "updateCounter": {
         // const { currentCounter } = message.data;
         // this.counter = currentCounter;
         // this.counterLabel.innerText = `${this.counter}`;
@@ -64,7 +85,7 @@ class App {
  * @return {void}
  */
 function postWebViewMessage(msg) {
-  parent.postMessage(msg, '*');
+  parent.postMessage(msg, "*");
 }
 
 new App();
