@@ -52,6 +52,28 @@ let spaceSoundSource = null;
 // Add this near the top with other variables
 let gameStarted = true; // Set game as started by default
 
+// Add this near the top with other variables
+const itemCounts = {
+  shovel: 3,
+  dynamite: 3
+};
+
+// Add this function to create item count displays
+function createItemCountDisplays() {
+  const toolSelector = document.querySelector('.tool-selector');
+  
+  // Add count display to each tool button
+  const buttons = toolSelector.querySelectorAll('.tool-button');
+  buttons.forEach(button => {
+    const tool = button.dataset.tool;
+    const countDisplay = document.createElement('div');
+    countDisplay.className = 'item-count';
+    countDisplay.id = `${tool}Count`;
+    countDisplay.textContent = itemCounts[tool];
+    button.appendChild(countDisplay);
+  });
+}
+
 // Function to create the music control button
 function createMusicControlButton() {
   const button = document.createElement("button");
@@ -1285,61 +1307,68 @@ let dustExplosions = [];
 
 // Class to handle dust explosion effect
 class DustExplosion {
-  constructor(position, scene, toolType = "shovel", count = 250) {
-    this.position = position;
-    this.scene = scene;
-    this.toolSettings = TOOL_SETTINGS[toolType];
-    this.count = count * this.toolSettings.explosionSize;
-    this.sparkDuration = this.toolSettings.sparkDuration;
-    this.explosionDuration = this.toolSettings.explosionDuration;
-    this.explosionSize = this.toolSettings.explosionSize;
-    this.elapsed = 0;
-    this.active = true;
-    this.explosionStarted = false;
-    this.toolType = toolType;
-
-    // Store the auto-rotation state to restore it later
-    this.wasAutoRotating = autoRotate;
-
-    // Stop the rotation when tool is active
-    if (autoRotate) {
-      autoRotate = false;
+    constructor(position, scene, toolType = 'shovel', count = 250) {
+        // Check if we have items left
+        if (itemCounts[toolType] <= 0) return;
+        
+        // Decrease item count
+        itemCounts[toolType]--;
+        updateItemCount(toolType);
+        
+        this.position = position;
+        this.scene = scene;
+        this.toolSettings = TOOL_SETTINGS[toolType];
+        this.count = count * this.toolSettings.explosionSize;
+        this.sparkDuration = this.toolSettings.sparkDuration;
+        this.explosionDuration = this.toolSettings.explosionDuration;
+        this.explosionSize = this.toolSettings.explosionSize;
+        this.elapsed = 0;
+        this.active = true;
+        this.explosionStarted = false;
+        this.toolType = toolType;
+        
+        // Store the auto-rotation state to restore it later
+        this.wasAutoRotating = autoRotate;
+        
+        // Stop the rotation when tool is active
+        if (autoRotate) {
+            autoRotate = false;
+        }
+        
+        // Create spark particles first
+        this.createSparkParticles();
+        
+        // Add sound handling
+        this.shovelSound = null;
+        this.shovelSoundSource = null;
+        this.fuseSoundSource = null;
+        this.explosionSoundSource = null;
+        
+        if (this.toolType === 'shovel' && soundEnabled && shovelSoundBuffer) {
+            this.playShovelSound();
+        } else if (this.toolType === 'dynamite') {
+            if (soundEnabled && fuseSoundBuffer) {
+                this.playFuseSound();
+            }
+        }
     }
-
-    // Create spark particles first
-    this.createSparkParticles();
-
-    // Add sound handling
-    this.shovelSound = null;
-    this.shovelSoundSource = null;
-    this.fuseSoundSource = null;
-    this.explosionSoundSource = null;
-
-    if (this.toolType === "shovel" && soundEnabled && shovelSoundBuffer) {
-      this.playShovelSound();
-    } else if (this.toolType === "dynamite") {
-      if (soundEnabled && fuseSoundBuffer) {
-        this.playFuseSound();
-      }
+    
+    playShovelSound() {
+        if (!soundEnabled) return; // Only play if sound is enabled
+        try {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            const source = audioContext.createBufferSource();
+            source.buffer = shovelSoundBuffer;
+            source.connect(audioContext.destination);
+            source.start(0);
+            source.stop(audioContext.currentTime + 3);
+        } catch (error) {
+            console.error('Error playing shovel sound:', error);
+        }
     }
-  }
-
-  playShovelSound() {
-    if (!soundEnabled) return; // Only play if sound is enabled
-    try {
-      if (audioContext.state === "suspended") {
-        audioContext.resume();
-      }
-
-      const source = audioContext.createBufferSource();
-      source.buffer = shovelSoundBuffer;
-      source.connect(audioContext.destination);
-      source.start(0);
-      source.stop(audioContext.currentTime + 3);
-    } catch (error) {
-      console.error("Error playing shovel sound:", error);
-    }
-  }
 
   playFuseSound() {
     if (!soundEnabled) return; // Only play if sound is enabled
@@ -2237,86 +2266,87 @@ function setupInteraction() {
             cursor: crosshair;
         }
     `;
-  document.head.appendChild(style);
+    document.head.appendChild(style);
+    
+    // Track if we're hovering over the asteroid
+    let isHovering = false;
+    
+    // Track last click time for double-click detection
+    let lastClickTime = 0;
+    const doubleClickThreshold = 300; // 300ms between clicks
+    
+    // Track if we're processing a click
+    let isProcessingClick = false;
 
-  // Track if we're hovering over the asteroid
-  let isHovering = false;
+    // Mouse move event for hover detection
+    window.addEventListener('mousemove', (event) => {
+        // Calculate mouse position in normalized device coordinates
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        
+        // Update the picking ray with the camera and mouse position
+        raycaster.setFromCamera(mouse, camera);
+        
+        // Calculate objects intersecting the picking ray
+        const intersects = raycaster.intersectObjects(modelGroup.children, true);
+        
+        if (intersects.length > 0 && !isHovering) {
+            // Mouse is over the asteroid - change to tool cursor
+            document.body.classList.add('shovel-cursor');
+            isHovering = true;
+        } else if (intersects.length === 0 && isHovering) {
+            // Mouse is no longer over the asteroid - change back to default cursor
+            document.body.classList.remove('shovel-cursor');
+            isHovering = false;
+        }
+    });
+    
+    // Click event for dust explosion
+    window.addEventListener('click', (event) => {
+        if (!gameStarted || isProcessingClick) return;
 
-  // Track last click time for double-click detection
-  let lastClickTime = 0;
-  const doubleClickThreshold = 300; // 300ms between clicks
+        const currentTime = Date.now();
+        
+        // Check if this is a double click
+        if (currentTime - lastClickTime < doubleClickThreshold) {
+            isProcessingClick = true; // Prevent multiple triggers
+            
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            // Update the picking ray with the camera and mouse position
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Calculate objects intersecting the picking ray
+            const intersects = raycaster.intersectObjects(modelGroup.children, true);
+            
+            if (intersects.length > 0) {
+                // Create a dust explosion at the clicked point
+                const intersectionPoint = intersects[0].point;
+                
+                // Create and add dust explosion with the current tool
+                const explosion = new DustExplosion(intersectionPoint, scene, currentTool);
+                dustExplosions.push(explosion);
+            }
 
-  // Mouse move event for hover detection
-  window.addEventListener("mousemove", (event) => {
-    // Calculate mouse position in normalized device coordinates
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    // Update the picking ray with the camera and mouse position
-    raycaster.setFromCamera(mouse, camera);
-
-    // Calculate objects intersecting the picking ray
-    const intersects = raycaster.intersectObjects(modelGroup.children, true);
-
-    if (intersects.length > 0 && !isHovering) {
-      // Mouse is over the asteroid - change to tool cursor
-      document.body.classList.add("shovel-cursor");
-      isHovering = true;
-    } else if (intersects.length === 0 && isHovering) {
-      // Mouse is no longer over the asteroid - change back to default cursor
-      document.body.classList.remove("shovel-cursor");
-      isHovering = false;
-    }
-  });
-
-  // Click event for dust explosion
-  window.addEventListener("click", (event) => {
-    if (!gameStarted) return;
-
-    const currentTime = Date.now();
-
-    // Check if this is a double click
-    if (currentTime - lastClickTime < doubleClickThreshold) {
-      // Calculate mouse position
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-      // Update the picking ray
-      raycaster.setFromCamera(mouse, camera);
-
-      // Check for asteroid intersection
-      const intersects = raycaster.intersectObjects(modelGroup.children, true);
-
-      if (intersects.length > 0) {
-        const intersectionPoint = intersects[0].point;
-
-        // 1. Send mining event FIRST
-        window.postWebViewMessage({
-          type: "miningStart",
-          data: {
-            tool: currentTool,
-          },
-        });
-
-        // 2. Then create visual effect
-        const explosion = new DustExplosion(
-          intersectionPoint,
-          scene,
-          currentTool
-        );
-        dustExplosions.push(explosion);
-      }
-    }
-
-    lastClickTime = currentTime;
-  });
-  // Make sure cursor resets when leaving the window
-  window.addEventListener("mouseleave", () => {
-    if (isHovering) {
-      document.body.classList.remove("shovel-cursor");
-      isHovering = false;
-    }
-  });
+            // Reset processing flag after a short delay
+            setTimeout(() => {
+                isProcessingClick = false;
+            }, 500); // 500ms cooldown
+        }
+        
+        // Update last click time
+        lastClickTime = currentTime;
+    });
+    
+    // Make sure cursor resets when leaving the window
+    window.addEventListener('mouseleave', () => {
+        if (isHovering) {
+            document.body.classList.remove('shovel-cursor');
+            isHovering = false;
+        }
+    });
 }
 
 // Initialize the scene
@@ -2504,3 +2534,17 @@ if (window.location.pathname.includes("shop.html")) {
   // Initialize asteroid page
   init();
 }
+
+// Add this function to update item counts
+function updateItemCount(toolType) {
+  const countDisplay = document.getElementById(`${toolType}Count`);
+  if (countDisplay) {
+    countDisplay.textContent = itemCounts[toolType];
+    // Add animation class
+    countDisplay.classList.add('count-update');
+    setTimeout(() => countDisplay.classList.remove('count-update'), 200);
+  }
+}
+
+// Call this function after creating tool buttons
+createItemCountDisplays();
