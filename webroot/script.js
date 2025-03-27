@@ -70,10 +70,10 @@ class App {
     });
 
     // Set up mining start handler for main.js to call
-    window.onMiningStart = (toolType) => {
-      const serverToolName = toolType === "dynamite" ? "boom" : toolType;
-      this.postMessage("miningStart", { tool: serverToolName });
-    };
+    // window.onMiningStart = (toolType) => {
+    //   const serverToolName = toolType === "dynamite" ? "boom" : toolType;
+    //   this.postMessage("miningStart", { tool: serverToolName });
+    // };
   }
 
   postMessage(type, data) {
@@ -117,7 +117,7 @@ class App {
 
       case "miningResult": {
         // Call the handler in main.js to update UI
-        console.log(message.data.leaderboard)
+        leaderboard = message.data.leaderboard
         updateScoreCard(message.data.playerItems);
         break;
       }

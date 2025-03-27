@@ -86,30 +86,33 @@ Devvit.addMenuItem({
   location: "subreddit",
   forUserType: "moderator",
   onPress: async (event, context) => {
-    const { reddit, ui } = context;
+    const { reddit, ui, redis } = context;
     const subreddit = await reddit.getCurrentSubreddit();
+    const asteroidConfig = generateAsteroidConfig();
+
+    // Create the post with loading preview
     const post = await reddit.submitPost({
-      title: "MINE!!",
+      title: `New Asteroid Discovered! (Capacity: ${asteroidConfig.capacity}kg)`,
       subredditName: subreddit.name,
-      // The preview appears while the post loads
       preview: (
-        <vstack
-          backgroundColor="rgb(255, 89, 0)"
-          height="100%"
-          width="100%"
-          alignment="middle center"
-        >
-          <text size="large" alignment="center" color="white" outline="thick">
-            Loading ...
-          </text>
+        <vstack height="100%" width="100%" alignment="middle center">
+          <text size="large">A new mining opportunity awaits!</text>
         </vstack>
       ),
     });
+
+    // Store config with post ID
+    const redisKey = `asteroid_config:${post.id}`;
+    await redis.set(redisKey, JSON.stringify(asteroidConfig));
+    await redis.expire(redisKey, 14400); // 4 hour expiration
+
+    console.log(
+      `Created new asteroid post ${post.id} with config:`,
+      asteroidConfig
+    );
     ui.showToast({ text: "Created post!" });
     ui.navigateTo(post);
   },
 });
 
 export default Devvit;
-
-

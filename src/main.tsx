@@ -157,6 +157,14 @@ async function startMining(
     redis.hIncrBy(playerItemKey, "gold", minedMinerals.gold),
     redis.hIncrBy(playerItemKey, "platinum", minedMinerals.platinum),
   ]);
+  console.log(
+    "updated the items hash",
+    minedMinerals.iron,
+    minedMinerals.nickel,
+    minedMinerals.carbon,
+    minedMinerals.gold,
+    minedMinerals.platinum
+  );
 
   //updating leaderboard
   await context.redis.zIncrBy(
@@ -170,7 +178,12 @@ async function startMining(
   );
 
   const playerIems = await redis.hGetAll(playerItemKey);
-  // const playerEquips = await redis.hGetAll(playerEquipsKey);
+  const playerEquips = await redis.hGetAll(playerEquipsKey);
+
+  // const numericInventory: Record<string, number> = {};
+  // for (const [key, value] of Object.entries(playerIems || {})) {
+  //   numericInventory[key] = parseInt(value, 10) || 0; // Fallback to 0 if NaN
+  // }
 
   return {
     playerItems: playerIems,
@@ -373,6 +386,8 @@ Devvit.addCustomPostType({
                 playerEquips: playerEquips,
               },
             });
+            console.log("intiData being sent: ", playerEquips, playerItems);
+            break;
 
           case "miningStart":
             const user = (await context.reddit.getCurrentUsername()) ?? "anon";
@@ -399,8 +414,8 @@ Devvit.addCustomPostType({
                 ...miningResult,
                 leaderboard: updatedLeaderboard,
               },
-            });
-            // console.log("miningResult", miningResult);
+            }); // Add this
+            console.log("miningResult", miningResult);
             break;
           default:
             console.log(`Unknown message type: ${message.type}`);
@@ -420,7 +435,7 @@ Devvit.addCustomPostType({
     return (
       <zstack width="100%" height={350}>
         <image
-          url={context.assets.getURL("check.jpeg")}
+          url={context.assets.getURL("check.webp")}
           imageWidth={700}
           imageHeight={500}
           resizeMode="cover"
