@@ -282,9 +282,28 @@ Devvit.addCustomPostType({
     });
 
     // Load latest counter from redis with `useAsync` hook
+    // const { data: playerItems, loading: playerItemsLoading } = useAsync(
+    //   async () =>
+    //     (await context.redis.hGetAll(`items_${username}_${postId}`)) ?? []
+    // );
+
     const { data: playerItems, loading: playerItemsLoading } = useAsync(
-      async () =>
-        (await context.redis.hGetAll(`items_${username}_${postId}`)) ?? []
+      async () => {
+        const items = await context.redis.hGetAll(`items_${username}_${postId}`);
+        
+        // If items is empty or undefined, return an object with default values
+        if (!items || Object.keys(items).length === 0) {
+          return {
+            iron: '0',
+            nickel: '0',
+            carbon: '0',
+            gold: '0',
+            platinum: '0'
+          };
+        }
+        
+        return items;
+      }
     );
 
     const { data: playerEquips, loading: playerEquipsLoading } = useAsync(
