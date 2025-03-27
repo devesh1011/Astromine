@@ -1,6 +1,6 @@
 /** Message from Devvit to the web view. */
 export type DevvitMessage =
-  | { type: 'initialData'; data: { username: string; currentCounter: number } }
+  | { type: 'initialData'; data: { username: string; playerItems: any; playerEquips: any } }
   | { type: 'updateCounter'; data: { currentCounter: number } };
 
 /** Message from the web view to Devvit. */

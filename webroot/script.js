@@ -76,6 +76,10 @@ class App {
     };
   }
 
+<<<<<<< HEAD
+=======
+  
+>>>>>>> 7c5eec1103fc5d430c8a1276169596a086b66952
   postMessage(type, data) {
     parent.postMessage({ type, data }, "*");
   }
@@ -93,6 +97,7 @@ class App {
       case "initialData": {
         const { username, playerItems, playerEquips } = message.data;
         window.asteroidConfig = message.data.asteroidConfig;
+<<<<<<< HEAD
         // console.log("Received initial data:", {
         //   playerItems,
         //   playerEquips,
@@ -121,6 +126,36 @@ class App {
         updateScoreCard(message.data.playerItems);
         break;
       }
+=======
+        console.log("Received initial data:", {
+          playerItems,
+          playerEquips,
+        });
+
+        // Initialize game state with player data
+        if (window.initializeGameState) {
+          window.initializeGameState(playerItems, playerEquips);
+        } else {
+          console.error("initializeGameState not found");
+        }
+        break;
+      }
+      // case "requestAsteroidConfig":
+      //   // You could respond with the current config
+      //   postWebViewMessage({
+      //     type: "asteroidConfig",
+      //     data: window.currentAsteroidConfig,
+      //   });
+      //   break;
+
+      case "miningResult": {
+        // Call the handler in main.js to update UI
+        if (window.handleMiningResult) {
+          window.handleMiningResult(message.data);
+        }
+        break;
+      }
+>>>>>>> 7c5eec1103fc5d430c8a1276169596a086b66952
       default:
         /** to-do: @satisifes {never} */
         const _ = message;

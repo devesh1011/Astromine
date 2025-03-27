@@ -86,6 +86,7 @@ Devvit.addMenuItem({
   location: "subreddit",
   forUserType: "moderator",
   onPress: async (event, context) => {
+<<<<<<< HEAD
     const { reddit, redis, ui } = context;
     const subreddit = await reddit.getCurrentSubreddit();
     const asteroidConfig = generateAsteroidConfig();
@@ -105,6 +106,27 @@ Devvit.addMenuItem({
     const redisKey = `asteroid_config:${post.id}`;
     await redis.set(redisKey, JSON.stringify(asteroidConfig));
     await redis.expire(redisKey, 14400); // 4 hour expiration
+=======
+    const { reddit, ui } = context;
+    const subreddit = await reddit.getCurrentSubreddit();
+    const post = await reddit.submitPost({
+      title: "MINE!!",
+      subredditName: subreddit.name,
+      // The preview appears while the post loads
+      preview: (
+        <vstack
+          backgroundColor="rgb(255, 89, 0)"
+          height="100%"
+          width="100%"
+          alignment="middle center"
+        >
+          <text size="large" alignment="center" color="white" outline="thick">
+            Loading ...
+          </text>
+        </vstack>
+      ),
+    });
+>>>>>>> 7c5eec1103fc5d430c8a1276169596a086b66952
     ui.showToast({ text: "Created post!" });
     ui.navigateTo(post);
   },
