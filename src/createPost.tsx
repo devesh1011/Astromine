@@ -85,7 +85,31 @@ Devvit.addMenuItem({
   label: "Create New Asteroid Now",
   location: "subreddit",
   forUserType: "moderator",
-  onPress: async (event, context) => {},
+  onPress: async (event, context) => {
+    const { reddit, redis, ui } = context;
+    const subreddit = await reddit.getCurrentSubreddit();
+    const asteroidConfig = generateAsteroidConfig();
+
+    // Create the post with loading preview
+    const post = await reddit.submitPost({
+      title: `New Asteroid Discovered! (Capacity: ${asteroidConfig.capacity}kg)`,
+      subredditName: subreddit.name,
+      preview: (
+        <vstack height="100%" width="100%" alignment="middle center">
+          <text size="large">A new mining opportunity awaits!</text>
+        </vstack>
+      ),
+    });
+
+    // Store config with post ID
+    const redisKey = `asteroid_config:${post.id}`;
+    await redis.set(redisKey, JSON.stringify(asteroidConfig));
+    await redis.expire(redisKey, 14400); // 4 hour expiration
+    ui.showToast({ text: "Created post!" });
+    ui.navigateTo(post);
+  },
 });
 
 export default Devvit;
+
+
