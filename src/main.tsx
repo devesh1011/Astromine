@@ -288,9 +288,39 @@ Devvit.addCustomPostType({
     );
 
     const { data: playerEquips, loading: playerEquipsLoading } = useAsync(
-      async () =>
-        (await context.redis.hGetAll(`equips_${username}_${postId}`)) ?? []
+      async () => {
+        // Check if this user has been initialized before
+        const hasBeenInitialized = await context.redis.exists(`user_initialized_${username}_${postId}`);
+        
+        // Get current items (may be empty for both new users and users with no items)
+        const items = await context.redis.hGetAll(`equipments_${username}_${postId}`);
+        
+        // If this is a first-time user
+        if (hasBeenInitialized === 0) {
+          // Define default equipment
+          const defaultEquipment = {
+            "shovel": "3",
+            "boom": "1",
+          };
+          
+          // Store the default equipment
+          await context.redis.hSet(`equipments_${username}_${postId}`, defaultEquipment);
+          
+          // Mark this user as initialized
+          await context.redis.set(`user_initialized_${username}_${postId}`, "true");
+          
+          return defaultEquipment;
+        }
+        
+        // Return existing items (which might be empty if all equipment is used up)
+        return items || {};
+      }
     );
+
+    // const { data: playerEquips, loading: playerEquipsLoading } = useAsync(
+    //   async () =>
+    //     (await context.redis.hGetAll(`equips_${username}_${postId}`)) ?? []
+    // );
 
     // Set up the game webview
     const gameWebView = useWebView<WebViewMessage, DevvitMessage>({
@@ -309,11 +339,13 @@ Devvit.addCustomPostType({
                 username: username,
                 playerItems: playerItems,
                 playerEquips: playerEquips,
+                // existingConfig: existingConfig,
               },
             });
             break;
 
           case "miningStart":
+            console.log("entered miningStart in devvit")
             const user = (await context.reddit.getCurrentUsername()) ?? "anon";
 
             const miningResult = await startMining(
@@ -342,39 +374,39 @@ Devvit.addCustomPostType({
           //   await context.redis.expire(`asteroid_config:${postId}`, 14400);
           //   break;
 
-          // case "updateEquips":
-          //   if (message.data.updateType == "increase") {
-          //     await context.redis.hIncrBy(
-          //       `items_${username}_${postId}`,
-          //       message.data.equipName,
-          //       parseInt(message.data.equipValue)
-          //     );
-          //   } else if (message.data.updateType == "decrease") {
-          //     await context.redis.hIncrBy(
-          //       `items_${username}_${postId}`,
-          //       message.data.equipName,
-          //       -parseInt(message.data.equipValue)
-          //     );
-          //   }
-          //   console.log(`Updated equip values`);
-          //   break;
+          case "updateEquips":
+            if (message.data.updateType == "increase") {
+              await context.redis.hIncrBy(
+                `items_${username}_${postId}`,
+                message.data.equipName,
+                parseInt(message.data.equipValue)
+              );
+            } else if (message.data.updateType == "decrease") {
+              await context.redis.hIncrBy(
+                `items_${username}_${postId}`,
+                message.data.equipName,
+                -parseInt(message.data.equipValue)
+              );
+            }
+            console.log(`Updated equip values`);
+            break;
 
-          // case "updateItems":
-          //   if (message.data.updateType == "increase") {
-          //     await context.redis.hIncrBy(
-          //       `items_${username}_${postId}`,
-          //       message.data.itemName,
-          //       parseInt(message.data.itemValue)
-          //     );
-          //   } else if (message.data.updateType == "decrease") {
-          //     await context.redis.hIncrBy(
-          //       `items_${username}_${postId}`,
-          //       message.data.itemName,
-          //       -parseInt(message.data.itemValue)
-          //     );
-          //   }
-          //   console.log(`Updated item values`);
-          //   break;
+          case "updateItems":
+            if (message.data.updateType == "increase") {
+              await context.redis.hIncrBy(
+                `items_${username}_${postId}`,
+                message.data.itemName,
+                parseInt(message.data.itemValue)
+              );
+            } else if (message.data.updateType == "decrease") {
+              await context.redis.hIncrBy(
+                `items_${username}_${postId}`,
+                message.data.itemName,
+                -parseInt(message.data.itemValue)
+              );
+            }
+            console.log(`Updated item values`);
+            break;
           default:
             console.log(`Unknown message type: ${message.type}`);
         }

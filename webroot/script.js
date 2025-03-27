@@ -20,7 +20,7 @@ class App {
 
     // This event gets called when the web view is loaded
     addEventListener("load", async () => {
-      postWebViewMessage({ type: "webViewReady" });
+      this.postMessage("webViewReady");
 
       if (window.initAsteroid) {
         window
@@ -28,52 +28,60 @@ class App {
           .catch((err) => console.error("Failed to initialize asteroid:", err));
       }
     });
+
+    // Set up mining start handler for main.js to call
+    window.onMiningStart = (toolType) => {
+      const serverToolName = toolType === "dynamite" ? "boom" : toolType;
+      this.postMessage("miningStart", { tool: serverToolName });
+    };
   }
 
-  /**
-   * @arg {MessageEvent<DevvitSystemMessage>} ev
-   * @return {void}
-   */
+  
+  postMessage(type, data) {
+    parent.postMessage({ type, data }, "*");
+  }
+
   #onMessage = (ev) => {
-    // Reserved type for messages sent via `context.ui.webView.postMessage`
     if (ev.data.type !== "devvit-message") return;
     const { message } = ev.data.data;
 
     // Always output full message
-    this.output.replaceChildren(JSON.stringify(message, undefined, 2));
+    if (this.output) {
+      this.output.replaceChildren(JSON.stringify(message, undefined, 2));
+    }
 
     switch (message.type) {
       case "initialData": {
-        // Load initial data
-        const { username, currentCounter } = message.data;
-        // this.usernameLabel.innerText = username;
-        // this.counter = currentCounter;
-        // this.counterLabel.innerText = `${this.counter}`;
-        // window.asteroidConfig = message.data.asteroidConfig;
-        // console.log("script.js console", window.asteroidConfig);
-
-        // // Initialize or update asteroid if main.js is ready
-        // if (window.asteroidInitialized) {
-        //   window.updateAsteroidConfig(window.asteroidConfig);
-        // }
-        break;
-      }
-      case "requestAsteroidConfig":
-        // You could respond with the current config
-        postWebViewMessage({
-          type: "asteroidConfig",
-          data: window.currentAsteroidConfig,
+        const { username, playerItems, playerEquips } = message.data;
+        window.asteroidConfig = message.data.asteroidConfig;
+        console.log("Received initial data:", {
+          playerItems,
+          playerEquips,
         });
-        break;
-      case "updateCounter": {
-        // const { currentCounter } = message.data;
-        // this.counter = currentCounter;
-        // this.counterLabel.innerText = `${this.counter}`;
+
+        // Initialize game state with player data
+        if (window.initializeGameState) {
+          window.initializeGameState(playerItems, playerEquips);
+        } else {
+          console.error("initializeGameState not found");
+        }
         break;
       }
-      // case "miningResult":
-      //   this.handleMiningResult(message.data);
+      // case "requestAsteroidConfig":
+      //   // You could respond with the current config
+      //   postWebViewMessage({
+      //     type: "asteroidConfig",
+      //     data: window.currentAsteroidConfig,
+      //   });
       //   break;
+
+      case "miningResult": {
+        // Call the handler in main.js to update UI
+        if (window.handleMiningResult) {
+          window.handleMiningResult(message.data);
+        }
+        break;
+      }
       default:
         /** to-do: @satisifes {never} */
         const _ = message;

@@ -52,22 +52,52 @@ let spaceSoundSource = null;
 // Add this near the top with other variables
 let gameStarted = true; // Set game as started by default
 
-// Add this near the top with other variables
-const itemCounts = {
-  shovel: 3,
-  dynamite: 3
+// Add this near the top with other variables - before itemCounts
+const resources = {
+  CARBON: 0,
+  NICKEL: 0,
+  IRON: 0,
+  GOLD: 0,
+  PLATINUM: 0,
+};
+
+// Replace the existing itemCounts declaration with this
+let itemCounts = {
+  shovel: 0,
+  dynamite: 0, // We'll map 'boom' to 'dynamite' internally
+};
+
+// Add this function to initialize game state from player data
+window.initializeGameState = function (playerItems, playerEquips) {
+  // Map the server tool names to game tool names
+  itemCounts.shovel = parseInt(playerEquips?.shovel || 0);
+  itemCounts.dynamite = parseInt(playerEquips?.boom || 0); // Map 'boom' to 'dynamite'
+
+  // Update resource counts from playerItems
+  resources.CARBON = parseInt(playerItems?.CARBON || 0);
+  resources.NICKEL = parseInt(playerItems?.NICKEL || 0);
+  resources.IRON = parseInt(playerItems?.IRON || 0);
+  resources.GOLD = parseInt(playerItems?.GOLD || 0);
+  resources.PLATINUM = parseInt(playerItems?.PLATINUM || 0);
+
+  console.log("Updated item counts:", itemCounts);
+  console.log("Updated resources:", resources);
+
+  // Update the UI
+  updateScoreCard();
+  createItemCountDisplays();
 };
 
 // Add this function to create item count displays
 function createItemCountDisplays() {
-  const toolSelector = document.querySelector('.tool-selector');
-  
+  const toolSelector = document.querySelector(".tool-selector");
+
   // Add count display to each tool button
-  const buttons = toolSelector.querySelectorAll('.tool-button');
-  buttons.forEach(button => {
+  const buttons = toolSelector.querySelectorAll(".tool-button");
+  buttons.forEach((button) => {
     const tool = button.dataset.tool;
-    const countDisplay = document.createElement('div');
-    countDisplay.className = 'item-count';
+    const countDisplay = document.createElement("div");
+    countDisplay.className = "item-count";
     countDisplay.id = `${tool}Count`;
     countDisplay.textContent = itemCounts[tool];
     button.appendChild(countDisplay);
@@ -1307,68 +1337,79 @@ let dustExplosions = [];
 
 // Class to handle dust explosion effect
 class DustExplosion {
-    constructor(position, scene, toolType = 'shovel', count = 250) {
-        // Check if we have items left
-        if (itemCounts[toolType] <= 0) return;
-        
-        // Decrease item count
-        itemCounts[toolType]--;
-        updateItemCount(toolType);
-        
-        this.position = position;
-        this.scene = scene;
-        this.toolSettings = TOOL_SETTINGS[toolType];
-        this.count = count * this.toolSettings.explosionSize;
-        this.sparkDuration = this.toolSettings.sparkDuration;
-        this.explosionDuration = this.toolSettings.explosionDuration;
-        this.explosionSize = this.toolSettings.explosionSize;
-        this.elapsed = 0;
-        this.active = true;
-        this.explosionStarted = false;
-        this.toolType = toolType;
-        
-        // Store the auto-rotation state to restore it later
-        this.wasAutoRotating = autoRotate;
-        
-        // Stop the rotation when tool is active
-        if (autoRotate) {
-            autoRotate = false;
-        }
-        
-        // Create spark particles first
-        this.createSparkParticles();
-        
-        // Add sound handling
-        this.shovelSound = null;
-        this.shovelSoundSource = null;
-        this.fuseSoundSource = null;
-        this.explosionSoundSource = null;
-        
-        if (this.toolType === 'shovel' && soundEnabled && shovelSoundBuffer) {
-            this.playShovelSound();
-        } else if (this.toolType === 'dynamite') {
-            if (soundEnabled && fuseSoundBuffer) {
-                this.playFuseSound();
-            }
-        }
+  constructor(position, scene, toolType = "shovel", count = 250) {
+    // Check if we have items left
+    if (itemCounts[toolType] <= 0) return;
+
+    // Let script.js handle server communication
+    window.onMiningStart?.(toolType);
+
+    this.position = position;
+    this.scene = scene;
+    this.toolSettings = TOOL_SETTINGS[toolType];
+    this.count = count * this.toolSettings.explosionSize;
+    this.sparkDuration = this.toolSettings.sparkDuration;
+    this.explosionDuration = this.toolSettings.explosionDuration;
+    this.explosionSize = this.toolSettings.explosionSize;
+    this.elapsed = 0;
+    this.active = true;
+    this.explosionStarted = false;
+    this.toolType = toolType;
+
+    // Store the auto-rotation state to restore it later
+    this.wasAutoRotating = autoRotate;
+
+    // Stop the rotation when tool is active
+    if (autoRotate) {
+      autoRotate = false;
     }
-    
-    playShovelSound() {
-        if (!soundEnabled) return; // Only play if sound is enabled
-        try {
-            if (audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
-            
-            const source = audioContext.createBufferSource();
-            source.buffer = shovelSoundBuffer;
-            source.connect(audioContext.destination);
-            source.start(0);
-            source.stop(audioContext.currentTime + 3);
-        } catch (error) {
-            console.error('Error playing shovel sound:', error);
-        }
+
+    // Create spark particles first
+    this.createSparkParticles();
+
+    // Add sound handling
+    this.shovelSound = null;
+    this.shovelSoundSource = null;
+    this.fuseSoundSource = null;
+    this.explosionSoundSource = null;
+
+    if (this.toolType === "shovel" && soundEnabled && shovelSoundBuffer) {
+      this.playShovelSound();
+    } else if (this.toolType === "dynamite") {
+      if (soundEnabled && fuseSoundBuffer) {
+        this.playFuseSound();
+      }
     }
+
+    // Map 'dynamite' UI name to server's 'boom' when sending updates
+    const serverToolName = toolType === "dynamite" ? "boom" : toolType;
+
+    // Send tool usage to server with correct name mapping
+    parent.postMessage(
+      {
+        type: "toolUsed",
+        data: { tool: serverToolName },
+      },
+      "*"
+    );
+  }
+
+  playShovelSound() {
+    if (!soundEnabled) return; // Only play if sound is enabled
+    try {
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+
+      const source = audioContext.createBufferSource();
+      source.buffer = shovelSoundBuffer;
+      source.connect(audioContext.destination);
+      source.start(0);
+      source.stop(audioContext.currentTime + 3);
+    } catch (error) {
+      console.error("Error playing shovel sound:", error);
+    }
+  }
 
   playFuseSound() {
     if (!soundEnabled) return; // Only play if sound is enabled
@@ -1859,9 +1900,6 @@ class DustExplosion {
       this.explosionStarted = true;
       this.createExplosionParticles();
 
-      // Add resources when mining finishes
-      this.addResources();
-
       // Stop the shovel sound if it's still playing
       if (this.toolType === "shovel" && this.shovelSoundSource) {
         this.shovelSoundSource.stop();
@@ -2192,14 +2230,32 @@ class DustExplosion {
       this.group.add(spark);
     }
   }
-
-  addResources() {
-    const resourceTypes = ["CARBON", "NICKEL", "IRON", "GOLD", "PLATINUM"];
-
-    // Update the score card
-    updateScoreCard();
-  }
 }
+
+// Expose functions for script.js to call
+window.gameActions = {
+  updateItemCounts: function (inventory) {
+    if (!inventory) return;
+
+    itemCounts.shovel = parseInt(inventory.shovel || 0);
+    itemCounts.dynamite = parseInt(inventory.boom || 0);
+
+    updateItemCount("shovel");
+    updateItemCount("dynamite");
+  },
+
+  updateResources: function (newResources) {
+    if (!newResources) return;
+
+    resources.CARBON = parseInt(newResources.carbon || 0);
+    resources.NICKEL = parseInt(newResources.nickel || 0);
+    resources.IRON = parseInt(newResources.iron || 0);
+    resources.GOLD = parseInt(newResources.gold || 0);
+    resources.PLATINUM = parseInt(newResources.platinum || 0);
+
+    updateScoreCard();
+  },
+};
 
 // Animation
 function animate() {
@@ -2266,87 +2322,91 @@ function setupInteraction() {
             cursor: crosshair;
         }
     `;
-    document.head.appendChild(style);
-    
-    // Track if we're hovering over the asteroid
-    let isHovering = false;
-    
-    // Track last click time for double-click detection
-    let lastClickTime = 0;
-    const doubleClickThreshold = 300; // 300ms between clicks
-    
-    // Track if we're processing a click
-    let isProcessingClick = false;
+  document.head.appendChild(style);
 
-    // Mouse move event for hover detection
-    window.addEventListener('mousemove', (event) => {
-        // Calculate mouse position in normalized device coordinates
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-        
-        // Update the picking ray with the camera and mouse position
-        raycaster.setFromCamera(mouse, camera);
-        
-        // Calculate objects intersecting the picking ray
-        const intersects = raycaster.intersectObjects(modelGroup.children, true);
-        
-        if (intersects.length > 0 && !isHovering) {
-            // Mouse is over the asteroid - change to tool cursor
-            document.body.classList.add('shovel-cursor');
-            isHovering = true;
-        } else if (intersects.length === 0 && isHovering) {
-            // Mouse is no longer over the asteroid - change back to default cursor
-            document.body.classList.remove('shovel-cursor');
-            isHovering = false;
-        }
-    });
-    
-    // Click event for dust explosion
-    window.addEventListener('click', (event) => {
-        if (!gameStarted || isProcessingClick) return;
+  // Track if we're hovering over the asteroid
+  let isHovering = false;
 
-        const currentTime = Date.now();
-        
-        // Check if this is a double click
-        if (currentTime - lastClickTime < doubleClickThreshold) {
-            isProcessingClick = true; // Prevent multiple triggers
-            
-            // Calculate mouse position in normalized device coordinates
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            
-            // Update the picking ray with the camera and mouse position
-            raycaster.setFromCamera(mouse, camera);
-            
-            // Calculate objects intersecting the picking ray
-            const intersects = raycaster.intersectObjects(modelGroup.children, true);
-            
-            if (intersects.length > 0) {
-                // Create a dust explosion at the clicked point
-                const intersectionPoint = intersects[0].point;
-                
-                // Create and add dust explosion with the current tool
-                const explosion = new DustExplosion(intersectionPoint, scene, currentTool);
-                dustExplosions.push(explosion);
-            }
+  // Track last click time for double-click detection
+  let lastClickTime = 0;
+  const doubleClickThreshold = 300; // 300ms between clicks
 
-            // Reset processing flag after a short delay
-            setTimeout(() => {
-                isProcessingClick = false;
-            }, 500); // 500ms cooldown
-        }
-        
-        // Update last click time
-        lastClickTime = currentTime;
-    });
-    
-    // Make sure cursor resets when leaving the window
-    window.addEventListener('mouseleave', () => {
-        if (isHovering) {
-            document.body.classList.remove('shovel-cursor');
-            isHovering = false;
-        }
-    });
+  // Track if we're processing a click
+  let isProcessingClick = false;
+
+  // Mouse move event for hover detection
+  window.addEventListener("mousemove", (event) => {
+    // Calculate mouse position in normalized device coordinates
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Update the picking ray with the camera and mouse position
+    raycaster.setFromCamera(mouse, camera);
+
+    // Calculate objects intersecting the picking ray
+    const intersects = raycaster.intersectObjects(modelGroup.children, true);
+
+    if (intersects.length > 0 && !isHovering) {
+      // Mouse is over the asteroid - change to tool cursor
+      document.body.classList.add("shovel-cursor");
+      isHovering = true;
+    } else if (intersects.length === 0 && isHovering) {
+      // Mouse is no longer over the asteroid - change back to default cursor
+      document.body.classList.remove("shovel-cursor");
+      isHovering = false;
+    }
+  });
+
+  // Click event for dust explosion
+  window.addEventListener("click", (event) => {
+    if (!gameStarted || isProcessingClick) return;
+
+    const currentTime = Date.now();
+
+    // Check if this is a double click
+    if (currentTime - lastClickTime < doubleClickThreshold) {
+      isProcessingClick = true; // Prevent multiple triggers
+
+      // Calculate mouse position in normalized device coordinates
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      // Update the picking ray with the camera and mouse position
+      raycaster.setFromCamera(mouse, camera);
+
+      // Calculate objects intersecting the picking ray
+      const intersects = raycaster.intersectObjects(modelGroup.children, true);
+
+      if (intersects.length > 0) {
+        // Create a dust explosion at the clicked point
+        const intersectionPoint = intersects[0].point;
+
+        // Create and add dust explosion with the current tool
+        const explosion = new DustExplosion(
+          intersectionPoint,
+          scene,
+          currentTool
+        );
+        dustExplosions.push(explosion);
+      }
+
+      // Reset processing flag after a short delay
+      setTimeout(() => {
+        isProcessingClick = false;
+      }, 500); // 500ms cooldown
+    }
+
+    // Update last click time
+    lastClickTime = currentTime;
+  });
+
+  // Make sure cursor resets when leaving the window
+  window.addEventListener("mouseleave", () => {
+    if (isHovering) {
+      document.body.classList.remove("shovel-cursor");
+      isHovering = false;
+    }
+  });
 }
 
 // Initialize the scene
@@ -2541,10 +2601,31 @@ function updateItemCount(toolType) {
   if (countDisplay) {
     countDisplay.textContent = itemCounts[toolType];
     // Add animation class
-    countDisplay.classList.add('count-update');
-    setTimeout(() => countDisplay.classList.remove('count-update'), 200);
+    countDisplay.classList.add("count-update");
+    setTimeout(() => countDisplay.classList.remove("count-update"), 200);
   }
 }
 
 // Call this function after creating tool buttons
 createItemCountDisplays();
+
+// Update the message handler in script.js to handle mining results
+window.handleMiningResult = function (result) {
+  if (result.inventory) {
+    // Update item counts from server
+    itemCounts.shovel = parseInt(result.inventory.shovel || 0);
+    itemCounts.dynamite = parseInt(result.inventory.boom || 0);
+
+    // Update resources from server
+    resources.CARBON = parseInt(result.inventory.carbon || 0);
+    resources.NICKEL = parseInt(result.inventory.nickel || 0);
+    resources.IRON = parseInt(result.inventory.iron || 0);
+    resources.GOLD = parseInt(result.inventory.gold || 0);
+    resources.PLATINUM = parseInt(result.inventory.platinum || 0);
+
+    // Update UI
+    updateScoreCard();
+    updateItemCount("shovel");
+    updateItemCount("dynamite");
+  }
+};
