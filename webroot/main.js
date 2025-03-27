@@ -52,61 +52,6 @@ let spaceSoundSource = null;
 // Add this near the top with other variables
 let gameStarted = true; // Set game as started by default
 
-<<<<<<< HEAD
-=======
-// Add this near the top with other variables - before itemCounts
-const resources = {
-  CARBON: 0,
-  NICKEL: 0,
-  IRON: 0,
-  GOLD: 0,
-  PLATINUM: 0,
-};
-
-// Replace the existing itemCounts declaration with this
-let itemCounts = {
-  shovel: 0,
-  dynamite: 0, // We'll map 'boom' to 'dynamite' internally
-};
-
-// Add this function to initialize game state from player data
-window.initializeGameState = function (playerItems, playerEquips) {
-  // Map the server tool names to game tool names
-  itemCounts.shovel = parseInt(playerEquips?.shovel || 0);
-  itemCounts.dynamite = parseInt(playerEquips?.boom || 0); // Map 'boom' to 'dynamite'
-
-  // Update resource counts from playerItems
-  resources.CARBON = parseInt(playerItems?.CARBON || 0);
-  resources.NICKEL = parseInt(playerItems?.NICKEL || 0);
-  resources.IRON = parseInt(playerItems?.IRON || 0);
-  resources.GOLD = parseInt(playerItems?.GOLD || 0);
-  resources.PLATINUM = parseInt(playerItems?.PLATINUM || 0);
-
-  console.log("Updated item counts:", itemCounts);
-  console.log("Updated resources:", resources);
-
-  // Update the UI
-  updateScoreCard();
-  createItemCountDisplays();
-};
-
-// Add this function to create item count displays
-function createItemCountDisplays() {
-  const toolSelector = document.querySelector(".tool-selector");
-
-  // Add count display to each tool button
-  const buttons = toolSelector.querySelectorAll(".tool-button");
-  buttons.forEach((button) => {
-    const tool = button.dataset.tool;
-    const countDisplay = document.createElement("div");
-    countDisplay.className = "item-count";
-    countDisplay.id = `${tool}Count`;
-    countDisplay.textContent = itemCounts[tool];
-    button.appendChild(countDisplay);
-  });
-}
-
->>>>>>> 7c5eec1103fc5d430c8a1276169596a086b66952
 // Function to create the music control button
 function createMusicControlButton() {
   const button = document.createElement("button");
@@ -1309,15 +1254,6 @@ let dustExplosions = [];
 // Class to handle dust explosion effect
 class DustExplosion {
   constructor(position, scene, toolType = "shovel", count = 250) {
-<<<<<<< HEAD
-=======
-    // Check if we have items left
-    if (itemCounts[toolType] <= 0) return;
-
-    // Let script.js handle server communication
-    window.onMiningStart?.(toolType);
-
->>>>>>> 7c5eec1103fc5d430c8a1276169596a086b66952
     this.position = position;
     this.scene = scene;
     this.toolSettings = TOOL_SETTINGS[toolType];
@@ -1354,36 +1290,6 @@ class DustExplosion {
         this.playFuseSound();
       }
     }
-  }
-
-  playShovelSound() {
-    if (!soundEnabled) return; // Only play if sound is enabled
-    try {
-      if (audioContext.state === "suspended") {
-        audioContext.resume();
-      }
-
-      const source = audioContext.createBufferSource();
-      source.buffer = shovelSoundBuffer;
-      source.connect(audioContext.destination);
-      source.start(0);
-      source.stop(audioContext.currentTime + 3);
-    } catch (error) {
-      console.error("Error playing shovel sound:", error);
-    }
-  }
-
-    // Map 'dynamite' UI name to server's 'boom' when sending updates
-    const serverToolName = toolType === "dynamite" ? "boom" : toolType;
-
-    // Send tool usage to server with correct name mapping
-    parent.postMessage(
-      {
-        type: "toolUsed",
-        data: { tool: serverToolName },
-      },
-      "*"
-    );
   }
 
   playShovelSound() {
@@ -1892,11 +1798,8 @@ class DustExplosion {
       this.explosionStarted = true;
       this.createExplosionParticles();
 
-<<<<<<< HEAD
       // Add resources when mining finishes
 
-=======
->>>>>>> 7c5eec1103fc5d430c8a1276169596a086b66952
       // Stop the shovel sound if it's still playing
       if (this.toolType === "shovel" && this.shovelSoundSource) {
         this.shovelSoundSource.stop();
@@ -2229,31 +2132,6 @@ class DustExplosion {
   }
 }
 
-// Expose functions for script.js to call
-window.gameActions = {
-  updateItemCounts: function (inventory) {
-    if (!inventory) return;
-
-    itemCounts.shovel = parseInt(inventory.shovel || 0);
-    itemCounts.dynamite = parseInt(inventory.boom || 0);
-
-    updateItemCount("shovel");
-    updateItemCount("dynamite");
-  },
-
-  updateResources: function (newResources) {
-    if (!newResources) return;
-
-    resources.CARBON = parseInt(newResources.carbon || 0);
-    resources.NICKEL = parseInt(newResources.nickel || 0);
-    resources.IRON = parseInt(newResources.iron || 0);
-    resources.GOLD = parseInt(newResources.gold || 0);
-    resources.PLATINUM = parseInt(newResources.platinum || 0);
-
-    updateScoreCard();
-  },
-};
-
 // Animation
 function animate() {
   requestAnimationFrame(animate);
@@ -2328,12 +2206,6 @@ function setupInteraction() {
   let lastClickTime = 0;
   const doubleClickThreshold = 300; // 300ms between clicks
 
-<<<<<<< HEAD
-=======
-  // Track if we're processing a click
-  let isProcessingClick = false;
-
->>>>>>> 7c5eec1103fc5d430c8a1276169596a086b66952
   // Mouse move event for hover detection
   window.addEventListener("mousemove", (event) => {
     // Calculate mouse position in normalized device coordinates
@@ -2359,17 +2231,12 @@ function setupInteraction() {
 
   // Click event for dust explosion
   window.addEventListener("click", (event) => {
-<<<<<<< HEAD
     if (!gameStarted) return;
-=======
-    if (!gameStarted || isProcessingClick) return;
->>>>>>> 7c5eec1103fc5d430c8a1276169596a086b66952
 
     const currentTime = Date.now();
 
     // Check if this is a double click
     if (currentTime - lastClickTime < doubleClickThreshold) {
-<<<<<<< HEAD
       // Calculate mouse position
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -2392,25 +2259,6 @@ function setupInteraction() {
         });
 
         // 2. Then create visual effect
-=======
-      isProcessingClick = true; // Prevent multiple triggers
-
-      // Calculate mouse position in normalized device coordinates
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-      // Update the picking ray with the camera and mouse position
-      raycaster.setFromCamera(mouse, camera);
-
-      // Calculate objects intersecting the picking ray
-      const intersects = raycaster.intersectObjects(modelGroup.children, true);
-
-      if (intersects.length > 0) {
-        // Create a dust explosion at the clicked point
-        const intersectionPoint = intersects[0].point;
-
-        // Create and add dust explosion with the current tool
->>>>>>> 7c5eec1103fc5d430c8a1276169596a086b66952
         const explosion = new DustExplosion(
           intersectionPoint,
           scene,
@@ -2418,24 +2266,10 @@ function setupInteraction() {
         );
         dustExplosions.push(explosion);
       }
-<<<<<<< HEAD
     }
 
     lastClickTime = currentTime;
   });
-=======
-
-      // Reset processing flag after a short delay
-      setTimeout(() => {
-        isProcessingClick = false;
-      }, 500); // 500ms cooldown
-    }
-
-    // Update last click time
-    lastClickTime = currentTime;
-  });
-
->>>>>>> 7c5eec1103fc5d430c8a1276169596a086b66952
   // Make sure cursor resets when leaving the window
   window.addEventListener("mouseleave", () => {
     if (isHovering) {
@@ -2630,41 +2464,3 @@ if (window.location.pathname.includes("shop.html")) {
   // Initialize asteroid page
   init();
 }
-<<<<<<< HEAD
-=======
-
-// Add this function to update item counts
-function updateItemCount(toolType) {
-  const countDisplay = document.getElementById(`${toolType}Count`);
-  if (countDisplay) {
-    countDisplay.textContent = itemCounts[toolType];
-    // Add animation class
-    countDisplay.classList.add("count-update");
-    setTimeout(() => countDisplay.classList.remove("count-update"), 200);
-  }
-}
-
-// Call this function after creating tool buttons
-createItemCountDisplays();
-
-// Update the message handler in script.js to handle mining results
-window.handleMiningResult = function (result) {
-  if (result.inventory) {
-    // Update item counts from server
-    itemCounts.shovel = parseInt(result.inventory.shovel || 0);
-    itemCounts.dynamite = parseInt(result.inventory.boom || 0);
-
-    // Update resources from server
-    resources.CARBON = parseInt(result.inventory.carbon || 0);
-    resources.NICKEL = parseInt(result.inventory.nickel || 0);
-    resources.IRON = parseInt(result.inventory.iron || 0);
-    resources.GOLD = parseInt(result.inventory.gold || 0);
-    resources.PLATINUM = parseInt(result.inventory.platinum || 0);
-
-    // Update UI
-    updateScoreCard();
-    updateItemCount("shovel");
-    updateItemCount("dynamite");
-  }
-};
->>>>>>> 7c5eec1103fc5d430c8a1276169596a086b66952
