@@ -1,6 +1,46 @@
 /** @typedef {import('../src/message.ts').DevvitSystemMessage} DevvitSystemMessage */
 /** @typedef {import('../src/message.ts').WebViewMessage} WebViewMessage */
 
+function updateScoreCard(playerItems) {
+  // Get references to the score display elements
+  const carbonScoreEl = document.getElementById("carbonScore");
+  const nickelScoreEl = document.getElementById("nickelScore");
+  const ironScoreEl = document.getElementById("ironScore");
+  const goldScoreEl = document.getElementById("goldScore");
+  const platinumScoreEl = document.getElementById("platinumScore");
+
+  // Update the text content of each element, defaulting to 0 if the mineral isn't in inventory
+  if (carbonScoreEl) {
+    carbonScoreEl.textContent =
+      Math.floor(playerItems.carbon / 2)?.toString() ?? "0";
+  }
+  if (nickelScoreEl) {
+    nickelScoreEl.textContent =
+      Math.floor(playerItems.nickel / 2)?.toString() ?? "0";
+  }
+  if (ironScoreEl) {
+    ironScoreEl.textContent =
+      Math.floor(playerItems.iron / 2)?.toString() ?? "0";
+  }
+  if (goldScoreEl) {
+    goldScoreEl.textContent =
+      Math.floor(playerItems.gold / 2)?.toString() ?? "0";
+  }
+  if (platinumScoreEl) {
+    platinumScoreEl.textContent =
+      Math.floor(playerItems.platinum / 2)?.toString() ?? "0";
+  }
+
+  // Optional: Add a visual effect like a temporary highlight
+  const scoreCard = document.querySelector(".score-card");
+  if (scoreCard) {
+    scoreCard.classList.add("updated");
+    setTimeout(() => {
+      scoreCard.classList.remove("updated");
+    }, 500); // Remove highlight after 0.5 seconds
+  }
+}
+
 class App {
   constructor() {
     // Get references to the HTML elements
@@ -20,7 +60,7 @@ class App {
 
     // This event gets called when the web view is loaded
     addEventListener("load", async () => {
-      postWebViewMessage({ type: "webViewReady" });
+      this.postMessage("webViewReady");
 
       if (window.initAsteroid) {
         window
@@ -28,52 +68,59 @@ class App {
           .catch((err) => console.error("Failed to initialize asteroid:", err));
       }
     });
+
+    // Set up mining start handler for main.js to call
+    window.onMiningStart = (toolType) => {
+      const serverToolName = toolType === "dynamite" ? "boom" : toolType;
+      this.postMessage("miningStart", { tool: serverToolName });
+    };
   }
 
-  /**
-   * @arg {MessageEvent<DevvitSystemMessage>} ev
-   * @return {void}
-   */
+  postMessage(type, data) {
+    parent.postMessage({ type, data }, "*");
+  }
+
   #onMessage = (ev) => {
-    // Reserved type for messages sent via `context.ui.webView.postMessage`
     if (ev.data.type !== "devvit-message") return;
     const { message } = ev.data.data;
 
     // Always output full message
-    this.output.replaceChildren(JSON.stringify(message, undefined, 2));
+    if (this.output) {
+      this.output.replaceChildren(JSON.stringify(message, undefined, 2));
+    }
 
     switch (message.type) {
       case "initialData": {
-        // Load initial data
-        const { username, currentCounter } = message.data;
-        // this.usernameLabel.innerText = username;
-        // this.counter = currentCounter;
-        // this.counterLabel.innerText = `${this.counter}`;
-        // window.asteroidConfig = message.data.asteroidConfig;
-        // console.log("script.js console", window.asteroidConfig);
+        const { username, playerItems, playerEquips } = message.data;
+        window.asteroidConfig = message.data.asteroidConfig;
+        // console.log("Received initial data:", {
+        //   playerItems,
+        //   playerEquips,
+        // });
+        updateScoreCard(playerItems);
 
-        // // Initialize or update asteroid if main.js is ready
-        // if (window.asteroidInitialized) {
-        //   window.updateAsteroidConfig(window.asteroidConfig);
+        // Initialize game state with player data
+        // if (window.initializeGameState) {
+        //   window.initializeGameState(playerItems, playerEquips);
+        // } else {
+        //   console.error("initializeGameState not found");
         // }
         break;
       }
-      case "requestAsteroidConfig":
-        // You could respond with the current config
-        postWebViewMessage({
-          type: "asteroidConfig",
-          data: window.currentAsteroidConfig,
-        });
-        break;
-      case "updateCounter": {
-        // const { currentCounter } = message.data;
-        // this.counter = currentCounter;
-        // this.counterLabel.innerText = `${this.counter}`;
+      // case "requestAsteroidConfig":
+      //   // You could respond with the current config
+      //   postWebViewMessage({
+      //     type: "asteroidConfig",
+      //     data: window.currentAsteroidConfig,
+      //   });
+      //   break;
+
+      case "miningResult": {
+        // Call the handler in main.js to update UI
+        console.log(message.data.leaderboard)
+        updateScoreCard(message.data.playerItems);
         break;
       }
-      // case "miningResult":
-      //   this.handleMiningResult(message.data);
-      //   break;
       default:
         /** to-do: @satisifes {never} */
         const _ = message;

@@ -12,7 +12,6 @@ type WebViewMessage = {
     | "launchGame"
     | "updateEquips"
     | "updateItems"
-    | "setAsteroidConfig"
     | "miningStart";
   data?: any;
 };
@@ -24,12 +23,6 @@ type DevvitMessage = {
 
 type MineralType = "iron" | "nickel" | "carbon" | "gold" | "platinum";
 type ToolType = "shovel" | "bomb";
-
-interface MiningResult {
-  mined: Record<MineralType, number>;
-  remainingCapacity: number;
-  inventory: Record<string, number>;
-}
 
 interface ToolStats {
   yield: number;
@@ -82,18 +75,33 @@ async function startMining(
   postId: string,
   username: string,
   tool: ToolType
-): Promise<MiningResult> {
+) {
   const { redis } = context;
   const toolStats = TOOL_STATS[tool];
 
   const asteroidKey = `asteroid_config:${postId}`;
-  // const userCooldownKey = `cooldown:${username}:${postId}`;
-  const inventoryKey = `inventory:${username}:${postId}`;
+  const playerItemKey = `items_${username}_${postId}`;
+  const playerEquipsKey = `equipments_${username}_${postId}`;
 
-  // const cooldownRemaining = await redis.get(userCooldownKey);
-  // if (cooldownRemaining) {
-  //   throw new Error(`Please wait ${Math.ceil(parseInt(cooldownRemaining)/1000} seconds before mining again`);
-  // }
+  console.log(
+    `Checking tool '${tool}' for user '${username}' in key '${playerEquipsKey}'`
+  );
+  const currentToolCountStr = await redis.hGet(playerEquipsKey, tool);
+  const currentToolCount = parseInt(currentToolCountStr ?? "0", 10);
+  console.log(`Current count for tool '${tool}': ${currentToolCount}`);
+
+  if (currentToolCount <= 0) {
+    // Throw an error if the user doesn't have the tool
+    throw new Error(`You don't have any ${tool}s left!`);
+  }
+
+  // If they have the tool, decrement the count *immediately*
+  // Using hIncrBy is atomic for decrementing a single field
+  console.log(`Decrementing tool '${tool}' count for user '${username}'...`);
+  const updatedToolCount = await redis.hIncrBy(playerEquipsKey, tool, -1);
+  console.log(
+    `New count for tool '${tool}' after decrement: ${updatedToolCount}`
+  );
 
   const asteroidData = await redis.get(asteroidKey);
   if (!asteroidData) {
@@ -114,7 +122,7 @@ async function startMining(
   const asteroid = asteroidData ? JSON.parse(asteroidData) : dummyAsteroid; // Fallback only
 
   if (asteroid.remaining <= 0) {
-    const currentInventory = await redis.hGetAll(inventoryKey);
+    const currentInventory = await redis.hGetAll(playerItemKey);
     return {
       mined: { iron: 0, nickel: 0, carbon: 0, gold: 0, platinum: 0 },
       remainingCapacity: 0,
@@ -143,27 +151,30 @@ async function startMining(
   );
 
   await Promise.all([
-    redis.hIncrBy(inventoryKey, "iron", minedMinerals.iron),
-    redis.hIncrBy(inventoryKey, "nickel", minedMinerals.nickel),
-    redis.hIncrBy(inventoryKey, "carbon", minedMinerals.carbon),
-    redis.hIncrBy(inventoryKey, "gold", minedMinerals.gold),
-    redis.hIncrBy(inventoryKey, "platinum", minedMinerals.platinum),
+    redis.hIncrBy(playerItemKey, "iron", minedMinerals.iron),
+    redis.hIncrBy(playerItemKey, "nickel", minedMinerals.nickel),
+    redis.hIncrBy(playerItemKey, "carbon", minedMinerals.carbon),
+    redis.hIncrBy(playerItemKey, "gold", minedMinerals.gold),
+    redis.hIncrBy(playerItemKey, "platinum", minedMinerals.platinum),
   ]);
 
-  // await redis.set(userCooldownKey, "1", {
-  //   expiry: { milliseconds: toolStats.cooldown },
-  // });
-  const updatedInventory = await redis.hGetAll(inventoryKey);
+  //updating leaderboard
+  await context.redis.zIncrBy(
+    `leaderboard_${postId}`,
+    `${username}`,
+    minedMinerals.iron +
+      minedMinerals.nickel * 2 +
+      minedMinerals.carbon * 5 +
+      minedMinerals.gold * 10 +
+      minedMinerals.platinum * 15
+  );
 
-  const numericInventory: Record<string, number> = {};
-  for (const [key, value] of Object.entries(updatedInventory || {})) {
-    numericInventory[key] = parseInt(value, 10) || 0; // Fallback to 0 if NaN
-  }
+  const playerIems = await redis.hGetAll(playerItemKey);
+  // const playerEquips = await redis.hGetAll(playerEquipsKey);
 
   return {
-    mined: minedMinerals,
+    playerItems: playerIems,
     remainingCapacity: asteroid.remaining - effectiveYield,
-    inventory: numericInventory || {},
   };
 }
 
@@ -282,15 +293,66 @@ Devvit.addCustomPostType({
     });
 
     // Load latest counter from redis with `useAsync` hook
-    const { data: playerItems, loading: playerItemsLoading } = useAsync(
-      async () =>
-        (await context.redis.hGetAll(`items_${username}_${postId}`)) ?? []
-    );
+    const [playerItems, setPlayerItems] = useState(async () => {
+      const items = await context.redis.hGetAll(`items_${username}_${postId}`);
+      // If items is empty or undefined, return an object with default values
+      if (!items || Object.keys(items).length === 0) {
+        return {
+          iron: "0",
+          nickel: "0",
+          carbon: "0",
+          gold: "0",
+          platinum: "0",
+        };
+      }
 
-    const { data: playerEquips, loading: playerEquipsLoading } = useAsync(
-      async () =>
-        (await context.redis.hGetAll(`equips_${username}_${postId}`)) ?? []
-    );
+      return items;
+    });
+
+    const [leaderboard, setLeaderboard] = useState(async () => {
+      return await context.redis.zRange(`leaderboard_${postId}`, 0, 4, {
+        reverse: true, // Get highest scores first
+        by: "rank",
+      });
+    });
+
+    const [playerEquips, setPlayerEquips] = useState(async () => {
+      // Check if this user has been initialized before
+      const hasBeenInitialized = await context.redis.exists(
+        `user_initialized_${username}_${postId}`
+      );
+
+      // Get current items (may be empty for both new users and users with no items)
+      const items = await context.redis.hGetAll(
+        `equipments_${username}_${postId}`
+      );
+
+      // If this is a first-time user
+      if (hasBeenInitialized === 0) {
+        // Define default equipment
+        const defaultEquipment = {
+          shovel: "3",
+          bomb: "1",
+        };
+
+        // Store the default equipment
+        await context.redis.hSet(
+          `equipments_${username}_${postId}`,
+          defaultEquipment
+        );
+
+        // Mark this user as initialized
+        await context.redis.set(
+          `user_initialized_${username}_${postId}`,
+          "true"
+        );
+
+        return defaultEquipment;
+      }
+
+      // Return existing items (which might be empty if all equipment is used up)
+      return items || {};
+    });
 
     // Set up the game webview
     const gameWebView = useWebView<WebViewMessage, DevvitMessage>({
@@ -311,7 +373,6 @@ Devvit.addCustomPostType({
                 playerEquips: playerEquips,
               },
             });
-            break;
 
           case "miningStart":
             const user = (await context.reddit.getCurrentUsername()) ?? "anon";
@@ -322,59 +383,25 @@ Devvit.addCustomPostType({
               user,
               message.data.tool
             );
-            webView.postMessage({ type: "miningResult", data: miningResult }); // Add this
-            console.log(miningResult);
+            const updatedLeaderboard = await context.redis.zRange(
+              `leaderboard_${postId}`,
+              0,
+              4,
+              {
+                reverse: true,
+                by: "rank",
+              }
+            );
+
+            webView.postMessage({
+              type: "miningResult",
+              data: {
+                ...miningResult,
+                leaderboard: updatedLeaderboard,
+              },
+            });
+            // console.log("miningResult", miningResult);
             break;
-
-          // case "setAsteroidConfig":
-          //   // Should ONLY receive initial asteroid generation data
-          //   const asteroidConfig = message.data;
-          //   console.log("Storing NEW asteroid config:", asteroidConfig);
-
-          //   await context.redis.set(
-          //     `asteroid_config:${postId}`,
-          //     JSON.stringify({
-          //       capacity: asteroidConfig.capacity,
-          //       remaining: asteroidConfig.capacity,
-          //       composition: asteroidConfig.composition,
-          //     })
-          //   );
-          //   await context.redis.expire(`asteroid_config:${postId}`, 14400);
-          //   break;
-
-          // case "updateEquips":
-          //   if (message.data.updateType == "increase") {
-          //     await context.redis.hIncrBy(
-          //       `items_${username}_${postId}`,
-          //       message.data.equipName,
-          //       parseInt(message.data.equipValue)
-          //     );
-          //   } else if (message.data.updateType == "decrease") {
-          //     await context.redis.hIncrBy(
-          //       `items_${username}_${postId}`,
-          //       message.data.equipName,
-          //       -parseInt(message.data.equipValue)
-          //     );
-          //   }
-          //   console.log(`Updated equip values`);
-          //   break;
-
-          // case "updateItems":
-          //   if (message.data.updateType == "increase") {
-          //     await context.redis.hIncrBy(
-          //       `items_${username}_${postId}`,
-          //       message.data.itemName,
-          //       parseInt(message.data.itemValue)
-          //     );
-          //   } else if (message.data.updateType == "decrease") {
-          //     await context.redis.hIncrBy(
-          //       `items_${username}_${postId}`,
-          //       message.data.itemName,
-          //       -parseInt(message.data.itemValue)
-          //     );
-          //   }
-          //   console.log(`Updated item values`);
-          //   break;
           default:
             console.log(`Unknown message type: ${message.type}`);
         }
