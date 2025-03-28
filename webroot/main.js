@@ -120,7 +120,6 @@ Promise.all([
   fuseSoundBuffer = fuse;
   explosionSoundBuffer = explosion;
   spaceSoundBuffer = space;
-  console.log("All sounds loaded successfully");
 
   // Start playing the space background sound
   playSpaceSound();
@@ -261,14 +260,6 @@ function createToolButton(tool, icon, label) {
 
   // Event handler
   button.addEventListener("click", () => {
-    // Check if the tool count is > 0 before switching? (Optional UX improvement)
-    // const currentCount = parseInt(countBadge.textContent || '0', 10);
-    // if (currentCount <= 0) {
-    //     console.log(`No ${tool} left!`);
-    //     // Optionally shake the button or show a message
-    //     return; // Don't switch if no tools left
-    // }
-
     currentTool = tool;
 
     document.querySelectorAll(".tool-button").forEach((btn) => {
@@ -360,7 +351,6 @@ function loadEnvironmentMap() {
 
     try {
       // Instead of loading the remote HDR, use the fallback environment
-      console.log("Using fallback environment instead of remote HDR");
       clearTimeout(timeout);
       setupFallbackEnvironment();
       resolve();
@@ -1218,7 +1208,6 @@ class SimplexNoise {
 function loadModel() {
   return new Promise((resolve) => {
     // For this project, we'll use our procedural model directly for better control
-    console.log("Creating a more realistic asteroid procedurally");
     const asteroid = createProceduralAsteroid();
     resolve(asteroid);
   });
@@ -2209,6 +2198,39 @@ function onWindowResize() {
 }
 window.addEventListener("resize", onWindowResize, false);
 
+function showMiningNotification() {
+  const notification = document.getElementById("mining-complete-notification");
+  const progressContainer = notification.querySelector(
+    ".notification-progress-container"
+  );
+
+  // Clear previous progress bars
+  progressContainer.innerHTML = "";
+
+  const progressBar = document.createElement("div");
+  progressBar.className = "notification-progress";
+  // ... progress bar styles ...
+
+  progressContainer.appendChild(progressBar);
+  notification.style.display = "block";
+
+  // Restart animations
+  notification.style.animation = "none";
+  void notification.offsetWidth; // Trigger reflow
+  notification.style.animation = "fadeInOut 1s";
+}
+
+function hideMiningNotification() {
+  const notification = document.getElementById("mining-complete-notification");
+  notification.style.display = "none";
+
+  // Only remove progress bars, keep text structure
+  const progressContainer = notification.querySelector(
+    ".notification-progress-container"
+  );
+  progressContainer.innerHTML = "";
+}
+
 // Handle mouse interaction with the model
 function setupInteraction() {
   // Raycaster for click detection
@@ -2257,8 +2279,6 @@ function setupInteraction() {
   window.addEventListener("dblclick", (event) => {
     // Prevent starting new mining if already in the visual lock phase
     if (!gameStarted || isMiningVisualLock) {
-      // <--- Use the new flag
-      console.log("Mining action ignored, visual lock active."); // Debug log
       return;
     }
 
@@ -2275,9 +2295,7 @@ function setupInteraction() {
     if (intersects.length > 0) {
       const intersectionPoint = intersects[0].point;
 
-      // --- Set the visual lock flag ---
       isMiningVisualLock = true;
-      console.log("Mining started, visual lock engaged."); // Debug log
       // ---
 
       // 1. Send mining event FIRST
@@ -2287,7 +2305,6 @@ function setupInteraction() {
           tool: currentTool,
         },
       });
-      console.log("Sent miningStart for tool:", currentTool);
 
       // 2. Create visual effect (DustExplosion)
       // The DustExplosion class itself handles its visual duration and sound
@@ -2303,50 +2320,16 @@ function setupInteraction() {
 
       // 4. Set a timer for the visual duration (3 seconds)
       setTimeout(() => {
-        console.log("Visual mining duration complete.");
+        showMiningNotification();
 
-        // Check if we received a result from the backend during the wait
-        if (pendingMiningResult) {
-          console.log("Applying pending mining result:", pendingMiningResult);
-
-          // --- UPDATE THE UI NOW ---
-          updateInventoryUI(pendingMiningResult.playerItems);
-          // TODO: Call other UI update functions if needed
-          // updateAsteroidUI(pendingMiningResult.remainingCapacity);
-          // updateLeaderboardUI(pendingMiningResult.leaderboard);
-
-          // Show the "Mining Complete" notification
-          if (miningCompleteNotification) {
-            miningCompleteNotification.style.display = "block";
-            console.log("Showing 'Mining Complete' notification.");
-          }
-
-          // Set another timer to hide the notification and release the lock
-          setTimeout(() => {
-            if (miningCompleteNotification) {
-              miningCompleteNotification.style.display = "none";
-            }
-            // --- Reset the visual lock flag AFTER notification disappears ---
-            isMiningVisualLock = false;
-            pendingMiningResult = null; // Clear the stored result
-            console.log(
-              "Notification hidden, visual lock released. Ready for next action."
-            );
-            // ---
-          }, notificationDuration); // Hide after 1 second
-        } else {
-          // Handle case where result didn't arrive in time (e.g., network error, backend issue)
-          console.warn(
-            "Mining result not received within visual duration. Releasing lock."
-          );
-          // --- Reset the visual lock flag even if no result came ---
+        // Hide after 1 second with animation
+        setTimeout(() => {
+          hideMiningNotification();
           isMiningVisualLock = false;
-          // ---
-        }
-      }, miningVisualDuration); // Wait 3 seconds
+        }, 1000);
+      }, 3000);
     } else {
       // Optional: Log if the double-click didn't hit the asteroid
-      console.log("Double-click missed the asteroid.");
     }
   });
 
@@ -2364,7 +2347,6 @@ function setupInteraction() {
       switch (message.type) {
         case "initialData":
           // Existing initial data handling
-          console.log("Received initialData:", message.data);
           // Update UI with initial values
           updateInventoryUI(message.data.playerItems);
           // updateEquipmentUI(message.data.playerEquips); // Example
@@ -2372,7 +2354,6 @@ function setupInteraction() {
           break;
 
         case "miningResult":
-          console.log("Received miningResult, storing:", message.data);
           // --- Store the result, DO NOT update UI yet ---
           pendingMiningResult = message.data;
           // ---
@@ -2414,7 +2395,6 @@ async function init() {
 
   try {
     // Create procedural asteroid directly without waiting for environment map
-    console.log("Creating a procedural asteroid");
     const asteroid = createProceduralAsteroid();
     loadingProgress.style.width = "70%";
     loadingText.textContent = "Setting up environment...";
@@ -2505,7 +2485,6 @@ document.body.appendChild(shopButton);
 
 // Add this function to check audio context state
 function checkAudioContext() {
-  console.log("Audio context state:", audioContext.state);
   if (audioContext.state === "suspended") {
     console.log("Audio context is suspended. User interaction required.");
   }
