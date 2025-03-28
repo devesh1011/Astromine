@@ -42,8 +42,8 @@ AstroMine is a competitive game in which Redditors co-operate and compete to min
 
 ### 💥 Mining Operation
 
-1. **Strike the Motherlode** 
-   - **Double-click** any asteroid surface
+1. **Strike the Asteroid** 
+   - **Double-click** on any asteroid surface area
    - Watch your tool create spectacular dust explosions 💫
 
 2. **Results Analysis** 🔍  
