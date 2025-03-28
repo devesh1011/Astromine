@@ -30,6 +30,17 @@ interface ToolStats {
   cooldown: number;
 }
 
+// interface LeaderboardEntry {
+//   username: string;
+//   score: number;
+//   rank: number;
+// }
+
+// interface LeaderboardProps {
+//   onBack: () => void;
+//   leaderboardData: LeaderboardEntry[]; // Expect the formatted data
+// }
+
 const TOOL_STATS = {
   shovel: {
     yield: 10,
@@ -76,6 +87,7 @@ async function startMining(
   username: string,
   tool: ToolType
 ) {
+  console.log(tool);
   const { redis } = context;
   const toolStats = TOOL_STATS[tool];
 
@@ -83,9 +95,6 @@ async function startMining(
   const playerItemKey = `items_${username}_${postId}`;
   const playerEquipsKey = `equipments_${username}_${postId}`;
 
-  console.log(
-    `Checking tool '${tool}' for user '${username}' in key '${playerEquipsKey}'`
-  );
   const currentToolCountStr = await redis.hGet(playerEquipsKey, tool);
   const currentToolCount = parseInt(currentToolCountStr ?? "0", 10);
   console.log(`Current count for tool '${tool}': ${currentToolCount}`);
@@ -97,7 +106,6 @@ async function startMining(
 
   // If they have the tool, decrement the count *immediately*
   // Using hIncrBy is atomic for decrementing a single field
-  console.log(`Decrementing tool '${tool}' count for user '${username}'...`);
   const updatedToolCount = await redis.hIncrBy(playerEquipsKey, tool, -1);
   console.log(
     `New count for tool '${tool}' after decrement: ${updatedToolCount}`
@@ -157,14 +165,6 @@ async function startMining(
     redis.hIncrBy(playerItemKey, "gold", minedMinerals.gold),
     redis.hIncrBy(playerItemKey, "platinum", minedMinerals.platinum),
   ]);
-  console.log(
-    "updated the items hash",
-    minedMinerals.iron,
-    minedMinerals.nickel,
-    minedMinerals.carbon,
-    minedMinerals.gold,
-    minedMinerals.platinum
-  );
 
   //updating leaderboard
   await context.redis.zIncrBy(
@@ -178,27 +178,29 @@ async function startMining(
   );
 
   const playerIems = await redis.hGetAll(playerItemKey);
-  const playerEquips = await redis.hGetAll(playerEquipsKey);
-
-  // const numericInventory: Record<string, number> = {};
-  // for (const [key, value] of Object.entries(playerIems || {})) {
-  //   numericInventory[key] = parseInt(value, 10) || 0; // Fallback to 0 if NaN
-  // }
+  const PlayerEquips = await redis.hGetAll(playerEquipsKey);
+  console.log(PlayerEquips);
 
   return {
     playerItems: playerIems,
+    playerEquips: PlayerEquips,
     remainingCapacity: asteroid.remaining - effectiveYield,
   };
 }
 
 // Create a leaderboard component
-const Leaderboard = ({ onBack }: { onBack: () => void }) => (
+const Leaderboard = ({
+  leaderboard,
+  onBack,
+}: {
+  leaderboard: Array<{ member: string; score: number }>;
+  onBack: () => void;
+}) => (
   <vstack width="100%" height="100%" backgroundColor="#0a0a23" padding="medium">
     <hstack width="100%" alignment="start" gap="medium">
       <button appearance="destructive" size="small" onPress={onBack}>
         ← RETURN TO BASE
       </button>
-
       <text size="xlarge" weight="bold" color="#ff2a6d" alignment="center">
         🏆 ASTROMINE ALL TIME LEADERBOARD 🏆
       </text>
@@ -230,65 +232,48 @@ const Leaderboard = ({ onBack }: { onBack: () => void }) => (
       </hstack>
 
       <vstack width="100%" padding="medium" gap="medium">
-        <hstack width="100%">
-          <text width="20%" color="gold" weight="bold">
-            #1
-          </text>
-          <text width="50%" color="#7efff5">
-            CosmoMiner42
-          </text>
-          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
-            12,845
-          </text>
-        </hstack>
+        {leaderboard.map((entry, index) => (
+          <hstack width="100%" key={entry.member}>
+            <text
+              width="20%"
+              color={
+                index === 0
+                  ? "gold"
+                  : index === 1
+                  ? "silver"
+                  : index === 2
+                  ? "#cd7f32"
+                  : "white"
+              }
+              weight="bold"
+            >
+              #{index + 1}
+            </text>
+            <text width="50%" color="#7efff5">
+              {entry.member}
+            </text>
+            <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
+              {entry.score.toLocaleString()}
+            </text>
+          </hstack>
+        ))}
 
-        <hstack width="100%">
-          <text width="20%" color="silver" weight="bold">
-            #2
-          </text>
-          <text width="50%" color="#7efff5">
-            StarDuster
-          </text>
-          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
-            10,372
-          </text>
-        </hstack>
-
-        <hstack width="100%">
-          <text width="20%" color="#cd7f32" weight="bold">
-            #3
-          </text>
-          <text width="50%" color="#7efff5">
-            AsteroidHunter
-          </text>
-          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
-            8,915
-          </text>
-        </hstack>
-
-        <hstack width="100%">
-          <text width="20%" color="white" weight="bold">
-            #4
-          </text>
-          <text width="50%" color="#7efff5">
-            GalacticMiner
-          </text>
-          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
-            7,683
-          </text>
-        </hstack>
-
-        <hstack width="100%">
-          <text width="20%" color="white" weight="bold">
-            #5
-          </text>
-          <text width="50%" color="#7efff5">
-            SpaceExplorer
-          </text>
-          <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
-            6,421
-          </text>
-        </hstack>
+        {/* Fill empty slots if less than 5 entries */}
+        {Array(Math.max(0, 5 - leaderboard.length))
+          .fill(null)
+          .map((_, index) => (
+            <hstack width="100%" key={`empty-${index}`}>
+              <text width="20%" color="white" weight="bold">
+                #{leaderboard.length + index + 1}
+              </text>
+              <text width="50%" color="#7efff5">
+                ---
+              </text>
+              <text width="30%" color="#d1f7ff" weight="bold" alignment="end">
+                0
+              </text>
+            </hstack>
+          ))}
       </vstack>
     </vstack>
   </vstack>
@@ -322,11 +307,16 @@ Devvit.addCustomPostType({
       return items;
     });
 
-    const [leaderboard, setLeaderboard] = useState(async () => {
-      return await context.redis.zRange(`leaderboard_${postId}`, 0, 4, {
-        reverse: true, // Get highest scores first
+    const { data: leaderboard } = useAsync(async () => {
+      const lb = await context.redis.zRange(`leaderboard_${postId}`, 0, 4, {
+        reverse: true,
         by: "rank",
       });
+
+      return lb.map((entry) => ({
+        member: entry.member,
+        score: Math.floor(entry.score),
+      }));
     });
 
     const [playerEquips, setPlayerEquips] = useState(async () => {
@@ -384,6 +374,7 @@ Devvit.addCustomPostType({
                 username: username,
                 playerItems: playerItems,
                 playerEquips: playerEquips,
+                leaderboard,
               },
             });
             console.log("intiData being sent: ", playerEquips, playerItems);
@@ -397,22 +388,12 @@ Devvit.addCustomPostType({
               context.postId ?? "defaultPostId",
               user,
               message.data.tool
-            );
-            const updatedLeaderboard = await context.redis.zRange(
-              `leaderboard_${postId}`,
-              0,
-              4,
-              {
-                reverse: true,
-                by: "rank",
-              }
-            );
+            )
 
             webView.postMessage({
               type: "miningResult",
               data: {
                 ...miningResult,
-                leaderboard: updatedLeaderboard,
               },
             }); // Add this
             console.log("miningResult", miningResult);
@@ -428,14 +409,19 @@ Devvit.addCustomPostType({
 
     // If leaderboard is showing, render the leaderboard component
     if (showLeaderboard) {
-      return <Leaderboard onBack={() => setShowLeaderboard(false)} />;
+      return (
+        <Leaderboard
+          leaderboard={leaderboard || []}
+          onBack={() => setShowLeaderboard(false)}
+        />
+      );
     }
 
     // Otherwise show the main menu
     return (
       <zstack width="100%" height={350}>
         <image
-          url={context.assets.getURL("check.webp")}
+          url={context.assets.getURL("check.jpeg")}
           imageWidth={700}
           imageHeight={500}
           resizeMode="cover"
