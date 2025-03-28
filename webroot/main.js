@@ -7,10 +7,18 @@ import { ShaderPass } from "./libs/jsm/postprocessing/ShaderPass.js";
 import { SSAOPass } from "./libs/jsm/postprocessing/SSAOPass.js";
 import { GammaCorrectionShader } from "./libs/jsm/shaders/GammaCorrectionShader.js";
 
+let isMiningVisualLock = false; // Flag for visual/feedback delay lock
+let pendingMiningResult = null; // To store the result while waiting
+const miningVisualDuration = 3000; // 3 seconds for explosion visual
+const notificationDuration = 1000; // 1 second for the "Mining Complete" message
+
 // DOM elements
 const loadingContainer = document.getElementById("loadingContainer");
 const loadingProgress = document.getElementById("loadingProgress");
 const loadingText = document.getElementById("loadingText");
+const miningCompleteNotification = document.getElementById(
+  "mining-complete-notification"
+);
 
 // Add this near the top with other DOM elements
 const scoreCard = document.createElement("div");
@@ -118,17 +126,6 @@ Promise.all([
   playSpaceSound();
 });
 
-// Add this function to update the score card
-function updateScoreCard() {
-  const scoreElements = {
-    carbonScore: document.getElementById("carbonScore"),
-    nickelScore: document.getElementById("nickelScore"),
-    ironScore: document.getElementById("ironScore"),
-    goldScore: document.getElementById("goldScore"),
-    platinumScore: document.getElementById("platinumScore"),
-  };
-}
-
 // Scene setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
@@ -176,13 +173,14 @@ let currentTool = "shovel"; // Default tool
 const TOOL_SETTINGS = {
   shovel: {
     sparkDuration: 3.0,
-    explosionDuration: 3.0,
+    explosionDuration: 3.0, // Matches miningVisualDuration
     explosionSize: 0.3,
     cursor: "crosshair",
   },
-  dynamite: {
-    sparkDuration: 8.0,
-    explosionDuration: 4.0,
+  bomb: {
+    // Renamed from dynamite
+    sparkDuration: 8.0, // Example fuse time
+    explosionDuration: 4.0, // Explosion time after fuse
     explosionSize: 0.5,
     cursor: "crosshair",
   },
@@ -197,10 +195,10 @@ document.body.appendChild(toolSelector);
 function createToolButton(tool, icon, label) {
   const button = document.createElement("button");
   button.className = "tool-button";
-  button.dataset.tool = tool;
-  button.style.width = "60px";
-  button.style.height = "60px";
-  button.style.borderRadius = "10px";
+  button.dataset.tool = tool; // Store tool name for easy selection
+  button.style.position = "relative";
+  button.style.width = "70px"; // Slightly wider for count
+  button.style.height = "70px"; //  button.style.borderRadius = "10px";
   button.style.background = tool === currentTool ? "#4466ff" : "#333";
   button.style.color = "white";
   button.style.cursor = "pointer";
@@ -211,6 +209,10 @@ function createToolButton(tool, icon, label) {
   button.style.fontSize = "12px";
   button.style.padding = "8px";
   button.style.transition = "all 0.3s ease";
+  button.style.background =
+    tool === currentTool
+      ? "linear-gradient(145deg, #4466ff, #2233aa)"
+      : "linear-gradient(145deg, #333, #000)"; // Initial active state
 
   // Icon container
   const iconElement = document.createElement("div");
@@ -221,6 +223,29 @@ function createToolButton(tool, icon, label) {
   iconElement.style.height = "32px";
   iconElement.style.fontSize = "32px";
   iconElement.style.textShadow = "0 0 5px rgba(255, 255, 0, 0.8)";
+  iconElement.style.fontSize = "28px";
+
+  // --- Add Count Badge Element ---
+  const countBadge = document.createElement("span");
+  countBadge.className = "tool-count-badge";
+  // Use dataset to link badge to the tool, makes updating easier
+  countBadge.dataset.tool = tool;
+  countBadge.textContent = "0"; // Default to 0
+  // --- Styling for the badge (can also move to CSS) ---
+  countBadge.style.position = "absolute";
+  countBadge.style.top = "-5px"; // Position top-right corner
+  countBadge.style.right = "-5px";
+  countBadge.style.background = "rgba(255, 0, 0, 0.9)"; // Red background
+  countBadge.style.color = "white";
+  countBadge.style.borderRadius = "50%"; // Circular badge
+  countBadge.style.padding = "2px 6px"; // Padding
+  countBadge.style.fontSize = "11px"; // Small font size
+  countBadge.style.fontWeight = "bold";
+  countBadge.style.minWidth = "18px"; // Ensure minimum width for circle
+  countBadge.style.textAlign = "center";
+  countBadge.style.border = "1px solid white";
+  countBadge.style.boxShadow = "0 0 5px rgba(255, 0, 0, 0.7)";
+  // ---
 
   // Label container
   const labelElement = document.createElement("span");
@@ -232,26 +257,29 @@ function createToolButton(tool, icon, label) {
 
   button.appendChild(iconElement);
   button.appendChild(labelElement);
+  button.appendChild(countBadge);
 
   // Event handler
   button.addEventListener("click", () => {
-    // Update current tool
+    // Check if the tool count is > 0 before switching? (Optional UX improvement)
+    // const currentCount = parseInt(countBadge.textContent || '0', 10);
+    // if (currentCount <= 0) {
+    //     console.log(`No ${tool} left!`);
+    //     // Optionally shake the button or show a message
+    //     return; // Don't switch if no tools left
+    // }
+
     currentTool = tool;
 
-    // Update all button styles
     document.querySelectorAll(".tool-button").forEach((btn) => {
-      btn.classList.remove("active");
       btn.style.background =
         btn.dataset.tool === currentTool
-          ? "linear-gradient(145deg, #4466ff, #2233aa)"
-          : "linear-gradient(145deg, #333, #000)";
+          ? "linear-gradient(145deg, #4466ff, #2233aa)" // Active style
+          : "linear-gradient(145deg, #333, #000)"; // Inactive style
     });
 
-    // Add active class to clicked button
-    button.classList.add("active");
-
-    // Add a click effect
-    button.style.transform = "scale(0.9)";
+    // Click effect
+    button.style.transform = "scale(0.95)";
     setTimeout(() => {
       button.style.transform = "scale(1)";
     }, 100);
@@ -260,15 +288,12 @@ function createToolButton(tool, icon, label) {
   return button;
 }
 
-// Shovel icon (SVG)
-const shovelIcon = `<div style="font-size: 24px; line-height: 1;">⛏</div>`;
-
-// Dynamite icon (SVG)
-const dynamiteIcon = `<div style="font-size: 24px; line-height: 1;">💣</div>`;
+const shovelIcon = `<div style="font-size: 24px; line-height: 1;">⛏️</div>`; // Using emoji
+const bombIcon = `<div style="font-size: 24px; line-height: 1;">💣</div>`; // Using emoji
 
 // Add tool buttons to selector
 toolSelector.appendChild(createToolButton("shovel", shovelIcon, "Shovel"));
-toolSelector.appendChild(createToolButton("dynamite", dynamiteIcon, "Boom")); // Changed from 'Dynamite' to 'Boom'
+toolSelector.appendChild(createToolButton("bomb", bombIcon, "bomb")); // Changed from 'bomb' to 'Boom'
 
 // Define quality settings - always set to high
 const qualities = [
@@ -278,7 +303,7 @@ const qualities = [
 ];
 
 // Always use high quality (index 2)
-const quality = qualities[2];
+const quality = qualities[0];
 
 // Function to update quality settings
 function updateQuality(quality) {
@@ -1285,7 +1310,7 @@ class DustExplosion {
 
     if (this.toolType === "shovel" && soundEnabled && shovelSoundBuffer) {
       this.playShovelSound();
-    } else if (this.toolType === "dynamite") {
+    } else if (this.toolType === "bomb") {
       if (soundEnabled && fuseSoundBuffer) {
         this.playFuseSound();
       }
@@ -1365,9 +1390,9 @@ class DustExplosion {
     // Create drilling sparks
     const sparkCount = Math.floor(this.count / 3);
 
-    // Dynamite fuse effect is different from shovel drilling
-    if (this.toolType === "dynamite") {
-      // Create fuse particle effect for dynamite
+    // bomb fuse effect is different from shovel drilling
+    if (this.toolType === "bomb") {
+      // Create fuse particle effect for bomb
       for (let i = 0; i < sparkCount / 2; i++) {
         const sparkMaterial = new THREE.SpriteMaterial({
           map: smokeTexture,
@@ -1420,28 +1445,28 @@ class DustExplosion {
         this.group.add(spark);
       }
 
-      // Add dynamite stick visual
-      const dynamiteMaterial = new THREE.SpriteMaterial({
+      // Add bomb stick visual
+      const bombMaterial = new THREE.SpriteMaterial({
         map: smokeTexture,
         transparent: true,
         opacity: 0.9,
-        color: 0xff0000, // Red for dynamite
+        color: 0xff0000, // Red for bomb
         depthWrite: false,
       });
 
-      const dynamite = new THREE.Sprite(dynamiteMaterial);
+      const bomb = new THREE.Sprite(bombMaterial);
       const scale = 0.1;
-      dynamite.scale.set(scale * 0.5, scale, scale * 0.5);
-      dynamite.position.copy(this.position);
+      bomb.scale.set(scale * 0.5, scale, scale * 0.5);
+      bomb.position.copy(this.position);
 
       this.particles.push({
-        sprite: dynamite,
+        sprite: bomb,
         initialScale: scale,
-        isDynamite: true,
+        isbomb: true,
         position: this.position.clone(),
       });
 
-      this.group.add(dynamite);
+      this.group.add(bomb);
     } else {
       // Regular drilling sparks for shovel
       for (let i = 0; i < sparkCount; i++) {
@@ -1529,7 +1554,7 @@ class DustExplosion {
 
     // Add dust/smoke particles - scale count by explosion size but keep visibly dense
     const particleCount =
-      this.toolType === "dynamite" ? this.count * 1.2 : this.count;
+      this.toolType === "bomb" ? this.count * 1.2 : this.count;
 
     for (let i = 0; i < particleCount; i++) {
       // Create sprite for each particle
@@ -1540,7 +1565,7 @@ class DustExplosion {
       particle.scale.set(scale, scale, scale);
 
       // Set initial position with variation around impact point - reduced radius
-      const spreadFactor = this.toolType === "dynamite" ? 0.15 : 0.08;
+      const spreadFactor = this.toolType === "bomb" ? 0.15 : 0.08;
       particle.position.set(
         this.impactPoint.x + (Math.random() - 0.5) * spreadFactor,
         this.impactPoint.y + (Math.random() - 0.5) * spreadFactor,
@@ -1556,14 +1581,14 @@ class DustExplosion {
 
       // More exaggerated initial velocity for cartoony movement
       const speedFactor =
-        this.toolType === "dynamite"
+        this.toolType === "bomb"
           ? 0.8 + Math.random() * 1.6
           : 0.6 + Math.random() * 1.0;
 
       velocity.normalize().multiplyScalar(speedFactor);
 
       // Add more pronounced upward bias for cartoony explosion
-      velocity.y += this.toolType === "dynamite" ? 0.8 : 0.5;
+      velocity.y += this.toolType === "bomb" ? 0.8 : 0.5;
 
       // Store particle data
       this.particles.push({
@@ -1574,7 +1599,7 @@ class DustExplosion {
         rotationSpeed: (Math.random() - 0.5) * 3, // Exaggerated rotation
         // Brighter, more saturated colors for cartoony look
         color:
-          this.toolType === "dynamite"
+          this.toolType === "bomb"
             ? new THREE.Color().setHSL(
                 0.05 + Math.random() * 0.05,
                 0.7 + Math.random() * 0.3, // More saturated
@@ -1594,7 +1619,7 @@ class DustExplosion {
     }
 
     // Add cartoon-style explosion "POW" stars
-    const starCount = this.toolType === "dynamite" ? 15 : 8;
+    const starCount = this.toolType === "bomb" ? 15 : 8;
     for (let i = 0; i < starCount; i++) {
       const starMaterial = new THREE.SpriteMaterial({
         map: this.createStarTexture(),
@@ -1655,14 +1680,14 @@ class DustExplosion {
 
     // Add traditional explosion sparks - fewer, but brighter
     const sparkCount =
-      this.toolType === "dynamite" ? this.count / 3 : this.count / 5;
+      this.toolType === "bomb" ? this.count / 3 : this.count / 5;
 
     for (let i = 0; i < sparkCount; i++) {
       const sparkMaterial = new THREE.SpriteMaterial({
         map: smokeTexture,
         transparent: true,
         opacity: 1.0,
-        color: this.toolType === "dynamite" ? 0xff3300 : 0xff6600, // Brighter colors
+        color: this.toolType === "bomb" ? 0xff3300 : 0xff6600, // Brighter colors
         depthWrite: false,
         blending: THREE.AdditiveBlending,
       });
@@ -1690,7 +1715,7 @@ class DustExplosion {
 
       // Exaggerated velocity for cartoon-like movement
       const speedFactor =
-        this.toolType === "dynamite"
+        this.toolType === "bomb"
           ? 1.8 + Math.random() * 2.2
           : 1.5 + Math.random() * 1.8;
 
@@ -1805,8 +1830,8 @@ class DustExplosion {
         this.shovelSoundSource.stop();
       }
 
-      // Stop the fuse sound and play explosion sound for dynamite
-      if (this.toolType === "dynamite") {
+      // Stop the fuse sound and play explosion sound for bomb
+      if (this.toolType === "bomb") {
         if (this.fuseSoundSource) {
           this.fuseSoundSource.stop();
         }
@@ -2141,12 +2166,12 @@ function animate() {
     deltaTime = clock.getDelta();
 
     // Auto-rotate the model if enabled
-    if (autoRotate) {
-      modelGroup.rotation.y += autoRotateSpeed * 0.01;
-      // Add slight wobble for more natural asteroid movement
-      modelGroup.rotation.x = Math.sin(Date.now() * 0.0003) * 0.03;
-      modelGroup.rotation.z = Math.cos(Date.now() * 0.0005) * 0.03;
-    }
+    // if (autoRotate) {
+    //   modelGroup.rotation.y += autoRotateSpeed * 0.01;
+    //   // Add slight wobble for more natural asteroid movement
+    //   modelGroup.rotation.x = Math.sin(Date.now() * 0.0003) * 0.03;
+    //   modelGroup.rotation.z = Math.cos(Date.now() * 0.0005) * 0.03;
+    // }
 
     // Update all active dust explosions
     dustExplosions = dustExplosions.filter((explosion) => {
@@ -2229,47 +2254,143 @@ function setupInteraction() {
     }
   });
 
-  // Click event for dust explosion
-  window.addEventListener("click", (event) => {
-    if (!gameStarted) return;
-
-    const currentTime = Date.now();
-
-    // Check if this is a double click
-    if (currentTime - lastClickTime < doubleClickThreshold) {
-      // Calculate mouse position
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-      // Update the picking ray
-      raycaster.setFromCamera(mouse, camera);
-
-      // Check for asteroid intersection
-      const intersects = raycaster.intersectObjects(modelGroup.children, true);
-
-      if (intersects.length > 0) {
-        const intersectionPoint = intersects[0].point;
-
-        // 1. Send mining event FIRST
-        window.postWebViewMessage({
-          type: "miningStart",
-          data: {
-            tool: currentTool,
-          },
-        });
-
-        // 2. Then create visual effect
-        const explosion = new DustExplosion(
-          intersectionPoint,
-          scene,
-          currentTool
-        );
-        dustExplosions.push(explosion);
-      }
+  window.addEventListener("dblclick", (event) => {
+    // Prevent starting new mining if already in the visual lock phase
+    if (!gameStarted || isMiningVisualLock) {
+      // <--- Use the new flag
+      console.log("Mining action ignored, visual lock active."); // Debug log
+      return;
     }
 
-    lastClickTime = currentTime;
+    // Calculate mouse position
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Update the picking ray
+    raycaster.setFromCamera(mouse, camera);
+
+    // Check for asteroid intersection
+    const intersects = raycaster.intersectObjects(modelGroup.children, true);
+
+    if (intersects.length > 0) {
+      const intersectionPoint = intersects[0].point;
+
+      // --- Set the visual lock flag ---
+      isMiningVisualLock = true;
+      console.log("Mining started, visual lock engaged."); // Debug log
+      // ---
+
+      // 1. Send mining event FIRST
+      window.postWebViewMessage({
+        type: "miningStart",
+        data: {
+          tool: currentTool,
+        },
+      });
+      console.log("Sent miningStart for tool:", currentTool);
+
+      // 2. Create visual effect (DustExplosion)
+      // The DustExplosion class itself handles its visual duration and sound
+      const explosion = new DustExplosion(
+        intersectionPoint,
+        scene,
+        currentTool
+      );
+      dustExplosions.push(explosion);
+
+      // 3. Backend result will be handled by the message listener below.
+      //    It will store the result in `pendingMiningResult`.
+
+      // 4. Set a timer for the visual duration (3 seconds)
+      setTimeout(() => {
+        console.log("Visual mining duration complete.");
+
+        // Check if we received a result from the backend during the wait
+        if (pendingMiningResult) {
+          console.log("Applying pending mining result:", pendingMiningResult);
+
+          // --- UPDATE THE UI NOW ---
+          updateInventoryUI(pendingMiningResult.playerItems);
+          // TODO: Call other UI update functions if needed
+          // updateAsteroidUI(pendingMiningResult.remainingCapacity);
+          // updateLeaderboardUI(pendingMiningResult.leaderboard);
+
+          // Show the "Mining Complete" notification
+          if (miningCompleteNotification) {
+            miningCompleteNotification.style.display = "block";
+            console.log("Showing 'Mining Complete' notification.");
+          }
+
+          // Set another timer to hide the notification and release the lock
+          setTimeout(() => {
+            if (miningCompleteNotification) {
+              miningCompleteNotification.style.display = "none";
+            }
+            // --- Reset the visual lock flag AFTER notification disappears ---
+            isMiningVisualLock = false;
+            pendingMiningResult = null; // Clear the stored result
+            console.log(
+              "Notification hidden, visual lock released. Ready for next action."
+            );
+            // ---
+          }, notificationDuration); // Hide after 1 second
+        } else {
+          // Handle case where result didn't arrive in time (e.g., network error, backend issue)
+          console.warn(
+            "Mining result not received within visual duration. Releasing lock."
+          );
+          // --- Reset the visual lock flag even if no result came ---
+          isMiningVisualLock = false;
+          // ---
+        }
+      }, miningVisualDuration); // Wait 3 seconds
+    } else {
+      // Optional: Log if the double-click didn't hit the asteroid
+      console.log("Double-click missed the asteroid.");
+    }
   });
+
+  window.addEventListener("message", (event) => {
+    // Optional but recommended: Add origin check for security
+    // if (event.origin !== 'YOUR_DEVVIT_APP_ORIGIN') {
+    //     console.warn("Ignoring message from unexpected origin:", event.origin);
+    //     return;
+    // }
+
+    const message = event.data; // Assumes message is in event.data
+
+    // Check if it's a message object with a type property
+    if (message && typeof message === "object" && message.type) {
+      switch (message.type) {
+        case "initialData":
+          // Existing initial data handling
+          console.log("Received initialData:", message.data);
+          // Update UI with initial values
+          updateInventoryUI(message.data.playerItems);
+          // updateEquipmentUI(message.data.playerEquips); // Example
+          // TODO: Initialize other UI elements
+          break;
+
+        case "miningResult":
+          console.log("Received miningResult, storing:", message.data);
+          // --- Store the result, DO NOT update UI yet ---
+          pendingMiningResult = message.data;
+          // ---
+          break;
+
+        // Add other message types you handle
+        // case 'someOtherUpdate':
+        //     // ...
+        //     break;
+
+        default:
+          console.log("Received unhandled message type:", message.type);
+      }
+    } else {
+      console.log("Received non-standard message:", event.data);
+    }
+  });
+
   // Make sure cursor resets when leaving the window
   window.addEventListener("mouseleave", () => {
     if (isHovering) {

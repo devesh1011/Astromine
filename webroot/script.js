@@ -11,24 +11,19 @@ function updateScoreCard(playerItems) {
 
   // Update the text content of each element, defaulting to 0 if the mineral isn't in inventory
   if (carbonScoreEl) {
-    carbonScoreEl.textContent =
-      Math.floor(playerItems.carbon / 2)?.toString() ?? "0";
+    carbonScoreEl.textContent = playerItems.carbon?.toString() ?? "0";
   }
   if (nickelScoreEl) {
-    nickelScoreEl.textContent =
-      Math.floor(playerItems.nickel / 2)?.toString() ?? "0";
+    nickelScoreEl.textContent = playerItems.nickel?.toString() ?? "0";
   }
   if (ironScoreEl) {
-    ironScoreEl.textContent =
-      Math.floor(playerItems.iron / 2)?.toString() ?? "0";
+    ironScoreEl.textContent = playerItems.iron?.toString() ?? "0";
   }
   if (goldScoreEl) {
-    goldScoreEl.textContent =
-      Math.floor(playerItems.gold / 2)?.toString() ?? "0";
+    goldScoreEl.textContent = playerItems.gold?.toString() ?? "0";
   }
   if (platinumScoreEl) {
-    platinumScoreEl.textContent =
-      Math.floor(playerItems.platinum / 2)?.toString() ?? "0";
+    platinumScoreEl.textContent = playerItems.platinum?.toString() ?? "0";
   }
 
   // Optional: Add a visual effect like a temporary highlight
@@ -39,6 +34,52 @@ function updateScoreCard(playerItems) {
       scoreCard.classList.remove("updated");
     }, 500); // Remove highlight after 0.5 seconds
   }
+}
+
+function updateEquipmentUI(playerEquips) {
+  // Ensure playerEquips is an object, even if null/undefined is passed
+  const equips = playerEquips || {};
+  console.log("Updating Equipment UI with:", equips); // For debugging
+
+  // Get all count badge elements
+  const countBadges = document.querySelectorAll(".tool-count-badge");
+
+  countBadges.forEach((badge) => {
+    // Ensure it's an HTML element with dataset property
+    if (!(badge instanceof HTMLElement)) return;
+
+    const toolName = badge.dataset.tool; // Get tool name from data attribute (e.g., "shovel", "bomb")
+    if (toolName) {
+      const countStr = equips[toolName]?.toString() ?? "0"; // Get count, default to "0"
+      const count = parseInt(countStr, 10); // Parse to integer for comparison
+
+      badge.textContent = countStr; // Update the displayed text
+
+      // Get the parent button to apply disabled styles
+      const parentButton = badge.closest(".tool-button");
+
+      // Style badge and button based on count
+      if (count <= 0) {
+        badge.style.background = "rgba(80, 80, 80, 0.8)"; // Dimmed background for zero count
+        badge.style.boxShadow = "none";
+        if (parentButton) {
+          parentButton.style.opacity = "0.5"; // Make button look disabled
+          parentButton.style.pointerEvents = "none"; // Disable clicking
+          parentButton.style.filter = "grayscale(80%)"; // Further visual cue
+        }
+      } else {
+        badge.style.background = "rgba(255, 0, 0, 0.9)"; // Default red background
+        badge.style.boxShadow = "0 0 5px rgba(255, 0, 0, 0.7)";
+        if (parentButton) {
+          parentButton.style.opacity = "1"; // Ensure button looks enabled
+          parentButton.style.pointerEvents = "auto"; // Enable clicking
+          parentButton.style.filter = "none"; // Remove grayscale
+        }
+      }
+    } else {
+      console.warn("Found a count badge without a data-tool attribute:", badge);
+    }
+  });
 }
 
 class App {
@@ -68,12 +109,6 @@ class App {
           .catch((err) => console.error("Failed to initialize asteroid:", err));
       }
     });
-
-    // Set up mining start handler for main.js to call
-    // window.onMiningStart = (toolType) => {
-    //   const serverToolName = toolType === "dynamite" ? "boom" : toolType;
-    //   this.postMessage("miningStart", { tool: serverToolName });
-    // };
   }
 
   postMessage(type, data) {
@@ -91,40 +126,23 @@ class App {
 
     switch (message.type) {
       case "initialData": {
-        const { username, playerItems, playerEquips } = message.data;
-        window.asteroidConfig = message.data.asteroidConfig;
-        // console.log("Received initial data:", {
-        //   playerItems,
-        //   playerEquips,
-        // });
-        updateScoreCard(playerItems);
+        const { username, playerItems, playerEquips } =
+          message.data;
 
-        // Initialize game state with player data
-        // if (window.initializeGameState) {
-        //   window.initializeGameState(playerItems, playerEquips);
-        // } else {
-        //   console.error("initializeGameState not found");
-        // }
+        updateScoreCard(playerItems);
+        updateEquipmentUI(playerEquips);
+        // console.log(leaderboard);
+
         break;
       }
-      // case "requestAsteroidConfig":
-      //   // You could respond with the current config
-      //   postWebViewMessage({
-      //     type: "asteroidConfig",
-      //     data: window.currentAsteroidConfig,
-      //   });
-      //   break;
 
       case "miningResult": {
-        // Call the handler in main.js to update UI
-        leaderboard = message.data.leaderboard
-        updateScoreCard(message.data.playerItems);
+        const { username, playerItems, playerEquips } =
+          message.data;
+        updateScoreCard(playerItems);
+        updateEquipmentUI(playerEquips);
         break;
       }
-      default:
-        /** to-do: @satisifes {never} */
-        const _ = message;
-        break;
     }
   };
 }
