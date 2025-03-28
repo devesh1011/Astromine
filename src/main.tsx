@@ -334,8 +334,8 @@ Devvit.addCustomPostType({
       if (hasBeenInitialized === 0) {
         // Define default equipment
         const defaultEquipment = {
-          shovel: "3",
-          bomb: "1",
+          shovel: "10",
+          bomb: "2",
         };
 
         // Store the default equipment
