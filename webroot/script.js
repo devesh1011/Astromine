@@ -95,6 +95,7 @@ class App {
       document.querySelector("#counter")
     );
     this.counter = 0;
+    this.pendingUpdates = [];
 
     // When the Devvit app sends a message with `postMessage()`, this will be triggered
     addEventListener("message", this.#onMessage);
@@ -109,6 +110,14 @@ class App {
           .catch((err) => console.error("Failed to initialize asteroid:", err));
       }
     });
+  }
+
+  #processDelayedUpdates() {
+    this.pendingUpdates.forEach(({ playerItems, playerEquips }) => {
+      updateScoreCard(playerItems);
+      updateEquipmentUI(playerEquips);
+    });
+    this.pendingUpdates = [];
   }
 
   postMessage(type, data) {
@@ -126,21 +135,23 @@ class App {
 
     switch (message.type) {
       case "initialData": {
-        const { username, playerItems, playerEquips } =
-          message.data;
+        const { username, playerItems, playerEquips } = message.data;
 
         updateScoreCard(playerItems);
         updateEquipmentUI(playerEquips);
-        // console.log(leaderboard);
 
         break;
       }
 
       case "miningResult": {
-        const { username, playerItems, playerEquips } =
-          message.data;
-        updateScoreCard(playerItems);
-        updateEquipmentUI(playerEquips);
+        const { username, playerItems, playerEquips } = message.data;
+
+        // Store the updates and process after 4 seconds
+        this.pendingUpdates.push({ playerItems, playerEquips });
+
+        setTimeout(() => {
+          this.#processDelayedUpdates();
+        }, 4000); // 3s animation + 1s notification
         break;
       }
     }
