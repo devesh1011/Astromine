@@ -32,7 +32,6 @@ Devvit.addSchedulerJob({
   name: "uploadNewPost",
   onRun: async (event, context) => {
     const { reddit, redis, scheduler } = context;
-
     try {
       const subreddit = await reddit.getCurrentSubreddit();
       const asteroidConfig = generateAsteroidConfig();
@@ -52,18 +51,8 @@ Devvit.addSchedulerJob({
       const redisKey = `asteroid_config:${post.id}`;
       await redis.set(redisKey, JSON.stringify(asteroidConfig));
       await redis.expire(redisKey, 14400); // 4 hour expiration
-
-      console.log(
-        `Created new asteroid post ${post.id} with config:`,
-        asteroidConfig
-      );
     } catch (error) {
       console.error("Failed to create asteroid post:", error);
-      // Reschedule if failed
-      await scheduler.runJob({
-        cron: "*/5 * * * *", // Retry in 5 minutes
-        name: "uploadNewPost",
-      });
     }
   },
 });
@@ -73,10 +62,9 @@ Devvit.addTrigger({
   event: "AppInstall",
   onEvent: async (event, context) => {
     await context.scheduler.runJob({
-      cron: "0 */4 * * *", // Every 4 hours at :00
+      cron: "0 */4 * * *", 
       name: "uploadNewPost",
     });
-    console.log("Scheduled asteroid posts every 4 hours");
   },
 });
 
@@ -106,10 +94,6 @@ Devvit.addMenuItem({
     await redis.set(redisKey, JSON.stringify(asteroidConfig));
     await redis.expire(redisKey, 14400); // 4 hour expiration
 
-    console.log(
-      `Created new asteroid post ${post.id} with config:`,
-      asteroidConfig
-    );
     ui.showToast({ text: "Created post!" });
     ui.navigateTo(post);
   },
