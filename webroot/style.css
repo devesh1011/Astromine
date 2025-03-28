@@ -6,7 +6,7 @@
 
 body {
   overflow: hidden;
-  font-family: 'Arial', sans-serif;
+  font-family: "Arial", sans-serif;
   background-color: #000;
 }
 
@@ -41,9 +41,15 @@ canvas {
 }
 
 @keyframes pulse {
-  0% { opacity: 0.7; }
-  50% { opacity: 1; }
-  100% { opacity: 0.7; }
+  0% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.7;
+  }
 }
 
 .loading-bar {
@@ -66,19 +72,26 @@ canvas {
 }
 
 .loading-progress::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   bottom: 0;
   right: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.5),
+    transparent
+  );
   animation: shimmer 1.5s infinite;
   transform: translateX(-100%);
 }
 
 @keyframes shimmer {
-  100% { transform: translateX(100%); }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .loading-text {
@@ -217,7 +230,7 @@ canvas {
     right: 10px;
     padding: 8px;
   }
-  
+
   .tool-selector {
     top: auto;
     bottom: 20px;
@@ -226,14 +239,14 @@ canvas {
     flex-direction: row;
     gap: 8px;
   }
-  
+
   .tool-button {
     width: 50px;
     height: 50px;
     font-size: 10px;
     padding: 6px;
   }
-  
+
   .tool-button .icon {
     width: 24px;
     height: 24px;
@@ -248,19 +261,19 @@ canvas {
     right: 5px;
     padding: 6px;
   }
-  
+
   .tool-selector {
     bottom: 10px;
     gap: 5px;
   }
-  
+
   .tool-button {
     width: 40px;
     height: 40px;
     font-size: 8px;
     padding: 4px;
   }
-  
+
   .tool-button .icon {
     width: 20px;
     height: 20px;
@@ -277,8 +290,12 @@ canvas {
 }
 
 @keyframes text-glow {
-  0% { text-shadow: 0 0 5px #0f0; }
-  100% { text-shadow: 0 0 10px #0f0, 0 0 20px #0f0; }
+  0% {
+    text-shadow: 0 0 5px #0f0;
+  }
+  100% {
+    text-shadow: 0 0 10px #0f0, 0 0 20px #0f0;
+  }
 }
 
 .score-item {
@@ -290,8 +307,14 @@ canvas {
 }
 
 @keyframes slide-in {
-  0% { transform: translateX(-100%); opacity: 0; }
-  100% { transform: translateX(0); opacity: 1; }
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .score-item .label {
@@ -307,8 +330,14 @@ canvas {
 }
 
 @keyframes count-up {
-  0% { transform: scale(1.2); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .tool-button {
@@ -333,13 +362,13 @@ canvas {
 }
 
 .tool-button::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   left: 50%;
   width: 300%;
   height: 300%;
-  background: radial-gradient(circle, rgba(255,255,0,0.3), transparent 70%);
+  background: radial-gradient(circle, rgba(255, 255, 0, 0.3), transparent 70%);
   transform: translate(-50%, -50%) scale(0);
   transition: transform 0.5s ease;
   pointer-events: none;
@@ -403,7 +432,7 @@ canvas {
   border: 2px solid #ff0;
   border-radius: 5px;
   color: white;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-weight: bold;
   text-transform: uppercase;
   cursor: pointer;
@@ -499,7 +528,7 @@ canvas {
   z-index: 100;
   box-shadow: 0 0 10px rgba(0, 0, 255, 0.5);
   transition: all 0.3s ease;
-  font-family: 'Press Start 2P', cursive;
+  font-family: "Press Start 2P", cursive;
   text-transform: uppercase;
   letter-spacing: 1px;
   text-shadow: 0 0 5px rgba(0, 0, 255, 0.8);

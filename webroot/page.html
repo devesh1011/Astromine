@@ -29,6 +29,30 @@
     Click on the asteroid to use your selected tool.
   </div>
 
+  <!-- Mining Complete Notification -->
+  <div id="mining-complete-notification" style="
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 20px 40px;
+    background-color: rgba(30, 180, 30, 0.85); /* Vibrant Green background */
+    color: white;
+    font-family: 'Press Start 2P', cursive; /* Pixel font */
+    font-size: 20px; /* Adjusted size */
+    font-weight: bold;
+    border-radius: 8px; /* Sharper corners */
+    border: 3px solid white;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5); /* White glow */
+    z-index: 1000; /* Ensure it's on top */
+    text-align: center;
+    text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.7); /* Text shadow for readability */
+  ">
+    MINING COMPLETE!
+  </div>
+
+
   <!-- Load script -->
   <script type="module" src="main.js"></script>
   <script type="application/javascript" src="script.js"></script>
